@@ -1,0 +1,1485 @@
+<!doctype html>
+<html lang="uz">
+<head>
+<meta charset="utf-8">
+<!-- maximum-scale=1: iOS input fokusida sahifani avtomatik kattalashtirmasin -->
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="color-scheme" content="dark">
+<title>Digital Twin — Ustozlar kengashi</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏛️</text></svg>">
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<!-- mermaid o'z serverimizdan: CDN ta'minot zanjiriga bog'lanib qolmaymiz -->
+<script src="/static/mermaid.min.js"></script>
+<style>
+:root{
+  --fon:#070b14; --fon2:#0b1120;
+  --shisha:rgba(255,255,255,.035); --shisha2:rgba(255,255,255,.06);
+  --chiz:rgba(255,255,255,.08); --chiz2:rgba(255,255,255,.14);
+  --matn:#e6ebf5; --xira:#8a94a8; --xira2:#5c667a;
+  --urgu:#5b8cff; --urgu2:#8b5bff;
+  --grad:linear-gradient(135deg,#5b8cff 0%,#8b5bff 100%);
+  --yashil:#3ddc84; --qizil:#ff6b6b;
+  --r-CEO:#f0b90b; --r-CTO:#22d3ee; --r-CFO:#34d399;
+  --r-COO:#fb923c; --r-CLO:#fb7185; --r-CMO:#a78bfa;
+  --yumshoq:cubic-bezier(.22,1,.36,1);
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+button,.t-el{touch-action:manipulation}
+html,body{height:100%}
+body{background:var(--fon);color:var(--matn);
+     font:15px/1.65 "Segoe UI Variable Text","Segoe UI",system-ui,-apple-system,sans-serif;
+     overflow:hidden;overscroll-behavior:none;-webkit-font-smoothing:antialiased}
+::selection{background:rgba(91,140,255,.35)}
+::-webkit-scrollbar{width:9px;height:9px}
+::-webkit-scrollbar-thumb{background:rgba(255,255,255,.1);border-radius:9px;border:2px solid var(--fon)}
+::-webkit-scrollbar-thumb:hover{background:rgba(255,255,255,.2)}
+::-webkit-scrollbar-track{background:transparent}
+
+/* ===== orqa fon shar'lari ===== */
+#orbs{position:fixed;inset:0;z-index:0;pointer-events:none;overflow:hidden}
+#orbs i{position:absolute;border-radius:50%;filter:blur(90px);opacity:.16;
+        animation:suz 26s var(--yumshoq) infinite alternate}
+#orbs i:nth-child(1){width:520px;height:520px;background:#3b6cff;top:-160px;left:-120px}
+#orbs i:nth-child(2){width:460px;height:460px;background:#7b3bff;bottom:-180px;right:-100px;animation-delay:-9s}
+#orbs i:nth-child(3){width:300px;height:300px;background:#0ea5e9;top:40%;left:55%;opacity:.08;animation-delay:-17s}
+@keyframes suz{from{transform:translate(0,0) scale(1)}to{transform:translate(70px,-50px) scale(1.15)}}
+
+/* ===== kirish (login) ===== */
+#kirish{position:fixed;inset:0;z-index:40;display:none;place-items:center;
+        background:rgba(4,7,14,.8);backdrop-filter:blur(16px);padding:20px}
+#kirish.kor{display:grid}
+.kirish-k{width:min(420px,94vw);background:rgba(13,18,32,.92);border:1px solid var(--chiz2);
+          border-radius:24px;padding:38px 34px 30px;text-align:center;
+          box-shadow:0 30px 80px rgba(0,0,0,.5);animation:kirish .6s var(--yumshoq) both}
+.kirish-k .logo{width:64px;height:64px;border-radius:20px;background:var(--grad);margin:0 auto 18px;
+                display:grid;place-items:center;font-weight:800;font-size:30px;color:#fff;
+                box-shadow:0 12px 34px rgba(91,110,255,.4)}
+.kirish-k h1{font-size:22px;font-weight:800;letter-spacing:.03em}
+.kirish-k .izoh{color:var(--xira);font-size:13.5px;margin:10px 0 24px;line-height:1.6}
+#tg-joy{display:flex;justify-content:center;min-height:44px;margin-bottom:12px}
+.k-eslatma{font-size:11.5px;color:var(--xira2);margin-top:14px;line-height:1.5}
+.dev-forma{display:flex;gap:8px;margin-top:4px}
+.dev-forma input{flex:1;padding:12px 15px;border-radius:12px;border:1px solid var(--chiz2);
+                 background:var(--shisha);color:var(--matn);font:14px/1 inherit;outline:none}
+.dev-forma input:focus{border-color:rgba(91,140,255,.55)}
+.dev-forma button{padding:12px 20px;border:0;border-radius:12px;background:var(--grad);color:#fff;
+                  font:600 13.5px/1 inherit;cursor:pointer;transition:transform .18s var(--yumshoq)}
+.dev-forma button:hover{transform:translateY(-1px)}
+.dev-belgi{display:inline-block;font-size:10.5px;font-weight:700;letter-spacing:.08em;color:#f0b90b;
+           border:1px solid rgba(240,185,11,.4);border-radius:20px;padding:3px 10px;margin-bottom:14px}
+
+/* ===== karkas ===== */
+/* DIQQAT: .ilova ga z-index BERILMAYDI! U stacking-context yaratib, ichidagi
+   yon panelni (aside z-index:20) butunlay 1-qavatga qamab qo'yadi — natijada
+   qora parda (z-index:9) ochiq panelning USTIDA qolib, hammasi xira ko'rinadi
+   va bosishlar pardaga tegib panel yopilib qolardi (telefonda "ishlamayapti"). */
+.ilova{position:relative;display:grid;grid-template-columns:300px 1fr;height:100vh;height:100dvh}
+
+/* ===== yon panel ===== */
+aside{display:flex;flex-direction:column;gap:14px;padding:18px 14px;
+      border-right:1px solid var(--chiz);background:rgba(9,13,24,.72);
+      -webkit-backdrop-filter:blur(18px);backdrop-filter:blur(18px)}
+.logo-q{display:flex;align-items:center;gap:11px;padding:2px 6px}
+.logo{width:38px;height:38px;border-radius:12px;background:var(--grad);flex:none;
+      display:grid;place-items:center;font-weight:800;font-size:17px;color:#fff;
+      box-shadow:0 6px 18px rgba(91,110,255,.35)}
+.logo-q b{font-size:15.5px;letter-spacing:.04em}
+.logo-q span{display:block;font-size:11.5px;color:var(--xira)}
+#yangi{display:flex;align-items:center;justify-content:center;gap:8px;padding:11px;
+       border:0;border-radius:12px;background:var(--grad);color:#fff;font:600 13.5px/1 inherit;
+       cursor:pointer;transition:transform .18s var(--yumshoq),box-shadow .18s;
+       box-shadow:0 6px 20px rgba(97,91,255,.28)}
+#yangi:hover{transform:translateY(-1px);box-shadow:0 10px 26px rgba(97,91,255,.4)}
+#yangi:active{transform:translateY(0) scale(.98)}
+.qidiruv{position:relative}
+.qidiruv svg{position:absolute;left:11px;top:50%;transform:translateY(-50%);opacity:.4}
+#filtr{width:100%;padding:9px 12px 9px 34px;border-radius:10px;border:1px solid var(--chiz);
+       background:var(--shisha);color:var(--matn);font:13px/1 inherit;outline:none;
+       transition:border-color .2s,background .2s}
+#filtr:focus{border-color:rgba(91,140,255,.55);background:rgba(91,140,255,.06)}
+#filtr::placeholder{color:var(--xira2)}
+.tarix-sarl{font-size:11px;text-transform:uppercase;letter-spacing:.1em;color:var(--xira2);
+            padding:2px 6px 0}
+#tarix{flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:4px;padding:2px}
+.t-el{padding:10px 12px;border-radius:11px;cursor:pointer;border:1px solid transparent;
+      transition:background .18s,border-color .18s,transform .18s var(--yumshoq);
+      animation:kirish .4s var(--yumshoq) both}
+/* hover faqat sichqonchali qurilmada — telefonda teginishdan keyin
+   "yopishib" qolib tugma bosilgandek ko'rinib turardi */
+@media(hover:hover){
+  .t-el:hover{background:var(--shisha2);transform:translateX(2px)}
+}
+.t-el:active{background:var(--shisha2)}
+.t-el.faol{background:rgba(91,140,255,.1);border-color:rgba(91,140,255,.35)}
+.t-el .sv{font-size:13px;line-height:1.45;display:-webkit-box;-webkit-line-clamp:2;
+          -webkit-box-orient:vertical;overflow:hidden}
+.t-el .meta{display:flex;gap:8px;margin-top:4px;font-size:11px;color:var(--xira)}
+#stat{padding:8px 12px 0;border-top:1px solid var(--chiz);font-size:11.5px;color:var(--xira);
+      display:flex;gap:6px;align-items:center}
+#stat b{color:var(--matn)}
+/* bilim manbasi (ustoz) tanlovi — yorqin matn va aniq faol-holat:
+   kulrang matn telefonda "o'chirilgan tugma"dek ko'rinardi */
+#ustozlar{display:flex;flex-direction:column;gap:6px;padding:0 2px}
+.ust-el{display:flex;align-items:center;gap:9px;padding:10px 12px;border-radius:11px;
+        border:1px solid var(--chiz2);background:rgba(255,255,255,.055);color:var(--matn);
+        font:600 12.5px/1.35 inherit;cursor:pointer;text-align:left;width:100%;
+        transition:border-color .2s,background .2s,transform .12s}
+@media(hover:hover){
+  .ust-el:hover{border-color:rgba(91,140,255,.5);background:rgba(91,140,255,.09)}
+}
+.ust-el:active{transform:scale(.98)}
+.ust-el.faol{border-color:rgba(91,140,255,.8);background:rgba(91,140,255,.18)}
+.ust-nuq{width:10px;height:10px;border-radius:50%;border:2px solid var(--xira2);flex:none;
+         transition:background .2s,border-color .2s,box-shadow .2s}
+.ust-el.faol .ust-nuq{background:var(--urgu);border-color:#cddafe;
+                      box-shadow:0 0 0 3px rgba(91,140,255,.25)}
+.ust-el .son{margin-left:auto;font-size:10.5px;font-weight:400;color:var(--xira);white-space:nowrap}
+.ust-el.faol .son{color:#bdd0fb}
+#user-k{display:flex;align-items:center;gap:10px;padding:10px 8px 2px}
+.u-avatar{width:34px;height:34px;border-radius:50%;background:var(--grad);flex:none;
+          display:grid;place-items:center;font-weight:800;font-size:14px;color:#fff;overflow:hidden}
+.u-avatar img{width:100%;height:100%;object-fit:cover}
+#user-k .u-ism{font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#user-k .u-tel{font-size:11px;color:var(--xira2)}
+#chiqish-b{margin-left:auto;background:none;border:1px solid var(--chiz);color:var(--xira);
+           width:30px;height:30px;border-radius:9px;cursor:pointer;font-size:13px;flex:none;
+           transition:color .2s,border-color .2s}
+#chiqish-b:hover{color:var(--qizil);border-color:rgba(255,107,107,.4)}
+#profil-b{margin-left:auto;background:none;border:1px solid var(--chiz);color:var(--xira);
+          width:30px;height:30px;border-radius:9px;cursor:pointer;font-size:13px;flex:none;
+          transition:color .2s,border-color .2s}
+#profil-b:hover{color:var(--matn);border-color:var(--chiz2)}
+#profil-b + a, #profil-b ~ a{margin-left:0}
+#user-k #chiqish-b{margin-left:0}
+
+/* ===== asosiy ===== */
+main{display:flex;flex-direction:column;min-width:0;height:100vh;height:100dvh}
+.ust{display:flex;align-items:center;gap:12px;padding:13px 26px;border-bottom:1px solid var(--chiz);
+     background:rgba(9,13,24,.55);-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px)}
+#burger{display:none;background:none;border:0;color:var(--matn);font-size:20px;cursor:pointer}
+.jonli{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--xira)}
+.nuqta{width:8px;height:8px;border-radius:50%;background:var(--yashil);
+       box-shadow:0 0 0 0 rgba(61,220,132,.5);animation:pulsa 2.2s infinite}
+@keyframes pulsa{0%{box-shadow:0 0 0 0 rgba(61,220,132,.45)}70%{box-shadow:0 0 0 9px rgba(61,220,132,0)}100%{box-shadow:0 0 0 0 rgba(61,220,132,0)}}
+.ust .rollar{margin-left:auto;display:flex;gap:5px}
+.rol-mini{font-size:10px;font-weight:700;padding:3px 8px;border-radius:20px;
+          border:1px solid var(--chiz);color:var(--xira);letter-spacing:.03em}
+
+/* ===== oqim (chat) ===== */
+#oqim{flex:1;overflow-y:auto;overscroll-behavior:contain;padding:26px 0 10px}
+.oqim-ich{max-width:880px;margin:0 auto;padding:0 26px;display:flex;flex-direction:column;gap:22px}
+
+#hero{text-align:center;padding:9vh 20px 30px;animation:kirish .7s var(--yumshoq) both}
+#hero h1{font-size:clamp(26px,4vw,40px);font-weight:800;line-height:1.2;
+         background:linear-gradient(120deg,#fff 20%,#9db4ff 55%,#c49bff 85%);
+         -webkit-background-clip:text;background-clip:text;color:transparent}
+#hero p{color:var(--xira);margin:12px auto 26px;max-width:520px;font-size:14.5px}
+.chiplar{display:flex;flex-wrap:wrap;gap:10px;justify-content:center;max-width:640px;margin:0 auto}
+.chip{padding:10px 16px;border-radius:30px;border:1px solid var(--chiz2);background:var(--shisha);
+      color:var(--matn);font:13px/1.4 inherit;cursor:pointer;text-align:left;
+      transition:all .2s var(--yumshoq)}
+.chip:hover{border-color:rgba(91,140,255,.6);background:rgba(91,140,255,.09);transform:translateY(-2px)}
+
+.juft{display:flex;flex-direction:column;gap:14px;animation:kirish .5s var(--yumshoq) both}
+.savol-p{align-self:flex-end;max-width:78%;background:var(--grad);color:#fff;
+         padding:12px 18px;border-radius:20px 20px 6px 20px;font-size:14.5px;line-height:1.55;
+         box-shadow:0 8px 24px rgba(91,110,255,.25);white-space:pre-wrap;word-break:break-word}
+.savol-meta{align-self:flex-end;font-size:11px;color:var(--xira2);margin-top:-8px;padding-right:6px}
+
+.karta{align-self:stretch;background:var(--shisha);border:1px solid var(--chiz);
+       border-radius:20px;-webkit-backdrop-filter:blur(16px);backdrop-filter:blur(16px);overflow:hidden;
+       transition:border-color .25s;box-shadow:0 10px 34px rgba(0,0,0,.25)}
+.karta.milt-k{animation:karta-milt 1.4s var(--yumshoq)}
+@keyframes karta-milt{0%,100%{border-color:var(--chiz)}25%{border-color:rgba(91,140,255,.8);box-shadow:0 0 0 4px rgba(91,140,255,.15)}}
+.k-bosh{display:flex;align-items:center;gap:10px;padding:13px 18px;border-bottom:1px solid var(--chiz);
+        background:rgba(255,255,255,.02)}
+.k-bosh .gerb{width:30px;height:30px;border-radius:9px;background:var(--grad);flex:none;
+              display:grid;place-items:center;font-size:15px}
+.k-bosh .kim{font-weight:700;font-size:13.5px;letter-spacing:.03em}
+.k-bosh .kim span{display:block;font-weight:400;font-size:11px;color:var(--xira)}
+.k-bosh .oxir{margin-left:auto;display:flex;align-items:center;gap:7px}
+.avatarlar{display:flex}
+.avatar{width:24px;height:24px;border-radius:50%;border:2px solid var(--fon2);margin-left:-7px;
+        display:grid;place-items:center;font-size:7.5px;font-weight:800;color:#0a0e18}
+.avatar:first-child{margin-left:0}
+.k-vaqt{font-size:11px;color:var(--xira2);white-space:nowrap}
+
+/* aniqlashtirish (tushunarsiz savol) */
+.varlar{display:flex;flex-direction:column;gap:8px;margin:4px 0 14px}
+.var-btn{display:block;width:100%;text-align:left;padding:12px 16px;border-radius:13px;
+         border:1px solid var(--chiz2);background:var(--shisha);color:var(--matn);
+         cursor:pointer;font:13.5px/1.5 inherit;transition:all .2s var(--yumshoq);
+         animation:kirish .4s var(--yumshoq) both}
+.var-btn:hover{border-color:rgba(91,140,255,.65);background:rgba(91,140,255,.1);transform:translateX(3px)}
+.var-btn.var-oz{color:var(--xira);border-style:dashed}
+.var-btn.var-oz:hover{color:var(--matn);border-color:var(--chiz2);background:var(--shisha2);transform:none}
+
+/* tab'lar */
+.tablar{display:flex;gap:2px;padding:8px 12px 0;overflow-x:auto;scrollbar-width:none}
+.tablar::-webkit-scrollbar{display:none}
+.tab{position:relative;border:0;background:none;color:var(--xira);font:600 12.5px/1 inherit;
+     padding:9px 13px;cursor:pointer;border-radius:9px 9px 0 0;transition:color .2s;white-space:nowrap}
+.tab:hover{color:var(--matn)}
+.tab.faol{color:var(--matn)}
+.tab::after{content:"";position:absolute;left:12px;right:12px;bottom:0;height:2.5px;border-radius:3px;
+            background:var(--grad);transform:scaleX(0);transition:transform .28s var(--yumshoq)}
+.tab.faol::after{transform:scaleX(1)}
+.tab .t-nuq{display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:6px;vertical-align:1px}
+.k-tana{padding:18px 22px 6px;animation:ich-kirish .35s var(--yumshoq)}
+@keyframes ich-kirish{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+
+/* markdown */
+.mdn h1{font-size:19px;margin:16px 0 8px}
+.mdn h2{font-size:16px;margin:18px 0 8px;color:#bdd0fb;display:flex;align-items:center;gap:8px}
+.mdn h2::before{content:"";width:4px;height:16px;border-radius:3px;background:var(--grad);flex:none}
+.mdn h3{font-size:14.5px;margin:14px 0 6px}
+.mdn p{margin:8px 0}
+.mdn ul,.mdn ol{margin:8px 0 8px 20px}
+.mdn li{margin:5px 0}
+.mdn hr{border:0;border-top:1px solid var(--chiz);margin:16px 0}
+.mdn code{background:rgba(255,255,255,.07);padding:1px 6px;border-radius:6px;font-size:12.5px}
+.mdn b{color:#fff}
+.mdn table{border-collapse:collapse;margin:10px 0;width:100%;font-size:13px}
+.mdn th,.mdn td{border:1px solid var(--chiz);padding:6px 10px;text-align:left}
+.mdn th{background:rgba(255,255,255,.04)}
+.iq{color:#8fb0ff;font-weight:700;font-size:.85em;cursor:pointer;padding:0 2px;border-radius:5px;
+    transition:background .15s}
+.iq:hover{background:rgba(91,140,255,.18)}
+
+/* diagramma (mermaid) va kod bloklari */
+.mmd-orab{margin:12px 0;padding:14px;background:#0a101f;border:1px solid var(--chiz);
+          border-radius:14px;overflow-x:auto}
+.mmd-orab .mermaid{display:flex;justify-content:center;
+                   font:11.5px/1.5 Consolas,monospace;color:var(--xira)}
+.mmd-orab svg{max-width:100%;height:auto}
+pre.kod{background:#060910;border:1px solid var(--chiz);border-radius:10px;
+        padding:12px 14px;overflow-x:auto;margin:10px 0;
+        font:12.5px/1.6 Consolas,monospace;color:#a8c7fa;white-space:pre}
+
+/* biriktirilgan tayyor fayl */
+.birik{display:flex;align-items:center;gap:10px;margin:0 22px 14px;padding:11px 14px;
+       border-radius:12px;border:1px solid rgba(61,220,132,.35);background:rgba(61,220,132,.07);
+       color:var(--matn);font:600 13px/1.4 inherit;text-decoration:none;
+       transition:border-color .2s,background .2s,transform .18s var(--yumshoq)}
+.birik:hover{border-color:rgba(61,220,132,.7);background:rgba(61,220,132,.13);transform:translateY(-1px)}
+.birik .b-ikon{font-size:18px;flex:none}
+.birik .b-izoh{display:block;font-weight:400;font-size:11px;color:var(--xira)}
+.birik .b-yuk{margin-left:auto;flex:none;color:var(--yashil);font-size:12px;white-space:nowrap}
+
+/* manbalar bloki */
+.manba-blok{border-top:1px solid var(--chiz);margin-top:10px}
+.manba-blok summary{list-style:none;cursor:pointer;padding:12px 22px;font:600 12.5px/1 inherit;
+                    color:var(--xira);display:flex;align-items:center;gap:8px;transition:color .2s}
+.manba-blok summary::-webkit-details-marker{display:none}
+.manba-blok summary:hover{color:var(--matn)}
+.manba-blok summary .strelka{transition:transform .25s var(--yumshoq);font-size:10px}
+.manba-blok[open] summary .strelka{transform:rotate(90deg)}
+.manba-list{padding:0 22px 16px;display:flex;flex-direction:column;gap:5px;max-height:300px;overflow-y:auto}
+.manba-el{display:flex;gap:10px;align-items:baseline;font-size:12.5px;padding:6px 10px;
+          border-radius:9px;transition:background .2s}
+.manba-el .g{flex:none;font-weight:800;color:#8fb0ff;font-size:11.5px;min-width:30px}
+.manba-el .joy{color:var(--xira);white-space:nowrap}
+.manba-el.milt{animation:milt 1.6s var(--yumshoq)}
+@keyframes milt{0%,100%{background:transparent}25%{background:rgba(91,140,255,.22)}}
+.manba-el{cursor:pointer}
+.manba-el:hover{background:rgba(91,140,255,.09)}
+.manba-el .koch{margin-left:auto;flex:none;color:var(--xira2);font-size:11px;white-space:nowrap}
+.manba-el:hover .koch{color:#8fb0ff}
+
+/* aynan olingan fragment oynasi */
+.fr-parda{position:fixed;inset:0;background:rgba(4,7,14,.82);backdrop-filter:blur(4px);
+          display:none;place-items:center;z-index:60;padding:16px}
+.fr-parda.kor{display:grid}
+.fr-oyna{width:min(680px,96vw);max-height:90vh;overflow-y:auto;background:var(--fon2);
+         border:1px solid var(--chiz2);border-radius:18px;padding:20px 22px 22px}
+.fr-bosh{display:flex;align-items:flex-start;gap:12px;margin-bottom:4px}
+.fr-bosh .fr-nom{font-weight:700;font-size:14.5px;line-height:1.35}
+.fr-bosh .fr-joy{color:var(--xira);font-size:12px;margin-top:2px}
+.fr-yop{margin-left:auto;flex:none;border:1px solid var(--chiz2);background:none;color:var(--xira);
+        width:30px;height:30px;border-radius:9px;cursor:pointer;font-size:15px;line-height:1}
+.fr-yop:hover{color:var(--matn);border-color:var(--chiz2)}
+.fr-blok{margin-top:14px}
+.fr-blok audio{width:100%;margin-top:8px}
+.fr-blok img{width:100%;border-radius:12px;border:1px solid var(--chiz);margin-top:8px;display:block}
+.fr-sarl{font-size:11px;text-transform:uppercase;letter-spacing:.07em;color:var(--xira2)}
+.fr-matn{margin-top:8px;font-size:13px;line-height:1.7;color:#c7d2e6;background:rgba(255,255,255,.03);
+         border:1px solid var(--chiz);border-radius:12px;padding:12px 14px;max-height:230px;overflow-y:auto;
+         white-space:pre-wrap}
+.fr-yuk{display:flex;align-items:center;gap:10px;color:var(--xira);font-size:13px;padding:10px 0}
+.fr-tugmalar{display:flex;gap:9px;flex-wrap:wrap;margin-top:16px}
+.fr-tug{border:1px solid var(--chiz2);background:rgba(255,255,255,.05);color:var(--matn);
+        border-radius:10px;padding:8px 14px;font:600 12.5px/1 inherit;cursor:pointer;
+        text-decoration:none;display:inline-flex;align-items:center;gap:7px}
+.fr-tug:hover{border-color:var(--urgu);background:rgba(91,140,255,.12)}
+.fr-xato{color:#ff9b9b;font-size:12.5px;margin-top:8px}
+
+/* obuna / planlar */
+#pul-k{margin:6px 8px 0;padding:9px 11px;border:1px solid var(--chiz);border-radius:11px;
+       background:rgba(255,255,255,.02);font-size:11.5px;color:var(--xira);cursor:pointer}
+#pul-k:hover{border-color:var(--chiz2)}
+#pul-k .p-bosh{display:flex;align-items:center;gap:6px;color:var(--matn);font-weight:600;
+               font-size:12px}
+#pul-k .p-chiz{height:4px;border-radius:3px;background:rgba(255,255,255,.08);margin-top:7px;
+               overflow:hidden}
+#pul-k .p-chiz i{display:block;height:100%;background:var(--urgu);border-radius:3px}
+#pul-k.ogoh{border-color:rgba(240,185,11,.45)}
+#pul-k.ogoh .p-chiz i{background:#f0b90b}
+.pl-karta{border:1px solid var(--chiz2);border-radius:14px;padding:15px 16px;margin-top:12px;
+          background:rgba(255,255,255,.03)}
+.pl-karta h4{margin:0;font-size:14.5px}
+.pl-narx{font-size:19px;font-weight:700;margin:8px 0 2px}
+.pl-narx span{font-size:12px;font-weight:400;color:var(--xira)}
+.pl-tavsif{font-size:12.5px;color:var(--xira);line-height:1.6}
+.pl-xus{margin:9px 0 0;padding-left:17px;font-size:12.5px;color:#c7d2e6;line-height:1.75}
+.pl-izoh{font-size:11.5px;color:var(--xira2);margin-top:14px;line-height:1.6}
+
+/* tanishuv testi */
+.tn-progress{height:3px;border-radius:2px;background:rgba(255,255,255,.08);margin:2px 0 18px}
+.tn-progress i{display:block;height:100%;border-radius:2px;background:var(--grad);
+               transition:width .3s var(--yumshoq)}
+.tn-savol{font-size:16px;font-weight:600;line-height:1.45;margin-bottom:4px}
+.tn-izoh{font-size:12.5px;color:var(--xira);line-height:1.6;margin-bottom:12px}
+.tn-variant{display:block;width:100%;text-align:left;margin-top:9px;padding:12px 14px;
+            border:1px solid var(--chiz2);border-radius:12px;background:rgba(255,255,255,.03);
+            color:var(--matn);font:500 13.5px/1.4 inherit;cursor:pointer;
+            transition:border-color .15s,background .15s}
+.tn-variant:hover{border-color:var(--urgu);background:rgba(91,140,255,.1)}
+.tn-variant.tanlangan{border-color:var(--urgu);background:rgba(91,140,255,.16)}
+.tn-matn{width:100%;margin-top:10px;padding:12px 14px;border:1px solid var(--chiz2);
+         border-radius:12px;background:rgba(255,255,255,.03);color:var(--matn);
+         font:400 13.5px/1.5 inherit;resize:vertical;min-height:80px}
+.tn-matn:focus{outline:none;border-color:var(--urgu)}
+.tn-qadam{font-size:11px;text-transform:uppercase;letter-spacing:.07em;color:var(--xira2)}
+
+/* o'z-o'zini tekshirish testi (skill natijasi) */
+.ts-blok{padding:4px 22px 16px}
+.ts-savol{margin-top:14px}
+.ts-matn{font-size:13.5px;font-weight:600;line-height:1.5;margin-bottom:6px}
+.ts-variant{display:block;width:100%;text-align:left;margin-top:6px;padding:9px 12px;
+            border:1px solid var(--chiz);border-radius:10px;background:rgba(255,255,255,.03);
+            color:var(--matn);font:400 13px/1.4 inherit;cursor:pointer}
+.ts-variant:hover:enabled{border-color:var(--urgu)}
+.ts-variant:disabled{cursor:default;opacity:.75}
+.ts-variant.ts-togri{border-color:rgba(61,220,132,.55);background:rgba(61,220,132,.12);
+                     color:#b6f0cd;opacity:1}
+.ts-variant.ts-xato{border-color:rgba(255,107,107,.55);background:rgba(255,107,107,.1);
+                    color:#ffc0c0;opacity:1}
+.ts-izoh{margin-top:7px;font-size:12.5px;color:var(--xira);line-height:1.6}
+
+/* jonli majlis kartasi */
+.jonli-k .bosqich{display:flex;align-items:center;gap:10px;padding:16px 22px 4px;font-size:13.5px;color:var(--xira)}
+.spin{width:15px;height:15px;border-radius:50%;border:2px solid rgba(255,255,255,.15);
+      border-top-color:var(--urgu);animation:aylan .8s linear infinite;flex:none}
+@keyframes aylan{to{transform:rotate(360deg)}}
+.nuqtalar::after{content:"";animation:nuqt 1.4s steps(4) infinite}
+@keyframes nuqt{0%{content:""}25%{content:"."}50%{content:".."}75%{content:"..."}}
+.chip-qator{display:flex;flex-wrap:wrap;gap:8px;padding:12px 22px 4px}
+.d-chip{display:flex;align-items:center;gap:7px;padding:7px 13px;border-radius:24px;
+        border:1px solid var(--chiz2);background:var(--shisha);font:700 12px/1 inherit;
+        animation:chip-kir .4s var(--yumshoq) both}
+@keyframes chip-kir{from{opacity:0;transform:scale(.75)}to{opacity:1;transform:scale(1)}}
+.d-chip .spin{width:11px;height:11px;border-width:1.5px}
+.d-chip.tayyor{border-color:rgba(61,220,132,.4);background:rgba(61,220,132,.08)}
+.d-chip .belgi{display:none;color:var(--yashil);font-size:12px;animation:pop .35s var(--yumshoq)}
+.d-chip.tayyor .belgi{display:inline}
+.d-chip.tayyor .spin{display:none}
+@keyframes pop{0%{transform:scale(0)}70%{transform:scale(1.35)}100%{transform:scale(1)}}
+.shimmer{height:10px;border-radius:6px;margin:8px 22px;
+         background:linear-gradient(90deg,rgba(255,255,255,.05) 25%,rgba(255,255,255,.13) 50%,rgba(255,255,255,.05) 75%);
+         background-size:200% 100%;animation:shim 1.4s infinite}
+@keyframes shim{to{background-position:-200% 0}}
+.jurnal{margin:10px 22px 16px}
+.jurnal summary{cursor:pointer;font-size:11.5px;color:var(--xira2);list-style:none}
+.jurnal summary::-webkit-details-marker{display:none}
+.jurnal pre{margin-top:8px;background:#060910;border:1px solid var(--chiz);border-radius:10px;
+            padding:10px 13px;font:11px/1.7 Consolas,monospace;color:#7fd49b;
+            max-height:180px;overflow-y:auto;white-space:pre-wrap}
+.vaqt-t{margin-left:auto;font:600 12px/1 Consolas,monospace;color:var(--xira)}
+.xato-k{border-color:rgba(255,107,107,.4)}
+.xato-k .bosqich{color:var(--qizil)}
+
+/* ===== yozish paneli ===== */
+.yozish{padding:12px 26px 18px;background:linear-gradient(transparent,var(--fon) 35%)}
+.yozish-ich{max-width:880px;margin:0 auto}
+.y-karta{border:1px solid var(--chiz2);border-radius:18px;background:rgba(15,20,34,.85);
+         -webkit-backdrop-filter:blur(18px);backdrop-filter:blur(18px);
+         padding:6px 6px 6px 18px;display:flex;align-items:flex-end;gap:10px;
+         transition:border-color .25s,box-shadow .25s}
+.y-karta:focus-within{border-color:rgba(91,140,255,.6);box-shadow:0 0 0 4px rgba(91,140,255,.12)}
+#savol{flex:1;background:none;border:0;outline:none;color:var(--matn);font:14.5px/1.55 inherit;
+       resize:none;max-height:180px;padding:10px 0}
+#savol::placeholder{color:var(--xira2)}
+#jonat{width:42px;height:42px;flex:none;border:0;border-radius:13px;background:var(--grad);
+       color:#fff;cursor:pointer;display:grid;place-items:center;
+       transition:transform .18s var(--yumshoq),opacity .2s,box-shadow .2s;
+       box-shadow:0 5px 16px rgba(97,91,255,.3)}
+#jonat:hover:not(:disabled){transform:translateY(-2px);box-shadow:0 9px 22px rgba(97,91,255,.45)}
+#jonat:active:not(:disabled){transform:scale(.93)}
+#jonat:disabled{opacity:.4;cursor:default;box-shadow:none}
+.y-past{display:flex;align-items:center;gap:14px;margin-top:9px;padding:0 6px}
+.kalit{display:flex;align-items:center;gap:9px;cursor:pointer;font-size:12.5px;color:var(--xira);user-select:none}
+.kalit input{display:none}
+.k-ui{width:34px;height:19px;border-radius:20px;background:rgba(255,255,255,.12);position:relative;
+      transition:background .25s;flex:none}
+.k-ui::after{content:"";position:absolute;top:2.5px;left:3px;width:14px;height:14px;border-radius:50%;
+             background:#fff;transition:transform .25s var(--yumshoq)}
+.kalit input:checked+.k-ui{background:var(--urgu)}
+.kalit input:checked+.k-ui::after{transform:translateX(14px)}
+.y-izoh{margin-left:auto;font-size:11.5px;color:var(--xira2)}
+
+/* toast */
+#toast{position:fixed;bottom:26px;left:50%;transform:translateX(-50%) translateY(20px);
+       background:#1a2234;border:1px solid var(--chiz2);color:var(--matn);padding:11px 20px;
+       border-radius:12px;font-size:13px;opacity:0;pointer-events:none;z-index:50;
+       transition:opacity .3s,transform .3s var(--yumshoq);box-shadow:0 12px 34px rgba(0,0,0,.4)}
+#toast.kor{opacity:1;transform:translateX(-50%) translateY(0)}
+
+@keyframes kirish{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+
+/* ===== mobil ===== */
+#parda{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9;
+       opacity:0;transition:opacity .3s}
+@media(max-width:920px){
+  .ilova{grid-template-columns:1fr}
+  /* Telefonda blur + orb animatsiyalari GPU'ni qiynaydi (pirillash) va blur
+     ishlamay qolsa shaffof panellar orqasi ko'rinib "xira" bo'ladi.
+     Mobilda hammasi qattiq (solid) fon — tiniq va tekis. */
+  #orbs{display:none}
+  body{background:radial-gradient(900px 600px at 15% -10%,#0e1730 0%,var(--fon) 60%)}
+  aside{position:fixed;z-index:20;top:0;left:0;bottom:0;width:290px;
+        transform:translateX(-102%);transition:transform .32s var(--yumshoq);
+        background:#0a0f1d;-webkit-backdrop-filter:none;backdrop-filter:none}
+  /* iOS: shrift <16px bo'lgan inputga fokus = avtomatik zoom ("yaqinlashish").
+     Mobilda barcha yozish maydonlari kamida 16px */
+  #savol,#filtr,.dev-forma input{font-size:16px}
+  /* telefonda shaffof fonlar juda xira ko'rinadi — qattiq (solid) kartalar */
+  .t-el{background:#111a2e;border-color:rgba(255,255,255,.07)}
+  .t-el.faol{background:#152343;border-color:rgba(91,140,255,.4)}
+  .ust-el{background:#141d33;border-color:rgba(255,255,255,.14)}
+  .ust-el.faol{background:#1b2c55;border-color:rgba(91,140,255,.85)}
+  aside.ochiq{transform:none;box-shadow:0 0 60px rgba(0,0,0,.65)}
+  .ust{background:rgba(7,11,20,.96);-webkit-backdrop-filter:none;backdrop-filter:none}
+  .karta{background:rgba(255,255,255,.05);-webkit-backdrop-filter:none;backdrop-filter:none}
+  .y-karta{background:#10182b;-webkit-backdrop-filter:none;backdrop-filter:none}
+  #kirish{background:rgba(4,7,14,.95);-webkit-backdrop-filter:none;backdrop-filter:none}
+  #parda.kor{display:block;opacity:1}
+  #burger{display:block}
+  .ust .rollar{display:none}
+  .savol-p{max-width:92%}
+  .oqim-ich,.yozish-ich{padding:0 14px}
+  /* tanishuv/plan/test bloklari — barmoq o'lchamiga moslash */
+  .tn-matn{font-size:16px}
+  .tn-variant,.ts-variant{padding:13px 14px}   /* teginish maydoni ~44px */
+  .ts-blok{padding:4px 14px 14px}
+  .fr-oyna{padding:18px 15px 18px}
+}
+@media(prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation-duration:.01ms!important;transition-duration:.01ms!important}
+}
+</style>
+</head>
+<body>
+<div id="orbs"><i></i><i></i><i></i></div>
+<div id="parda" onclick="yonYop()"></div>
+
+<!-- ===== KIRISH EKRANI ===== -->
+<div id="kirish">
+  <div class="kirish-k">
+    <div class="logo">K</div>
+    <h1>KENGASH</h1>
+    <div class="izoh">AI direktorlar kengashi — shaxsiy akkauntingiz bilan kiring.
+      Suhbat tarixingiz faqat sizga ko'rinadi.</div>
+    <div id="kirish-tana"></div>
+    <div class="k-eslatma" id="kirish-eslatma"></div>
+  </div>
+</div>
+
+<div class="ilova">
+<aside id="yon">
+  <div class="logo-q">
+    <div class="logo">K</div>
+    <div><b>KENGASH</b><span>AI direktorlar kengashi</span></div>
+  </div>
+  <button id="yangi" onclick="yangiSavol()">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+    Yangi savol
+  </button>
+  <div class="qidiruv">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+    <input id="filtr" placeholder="Tarixdan qidirish...   Ctrl+K">
+  </div>
+  <div class="tarix-sarl">Suhbat tarixi</div>
+  <nav id="tarix"></nav>
+  <div class="tarix-sarl" style="border-top:1px solid var(--chiz);padding-top:10px">👨‍🏫 Ustoz (digital twin)</div>
+  <div id="ustozlar"></div>
+  <div id="stat"></div>
+  <div id="pul-k" style="display:none" onclick="planlarOch()"></div>
+  <div id="user-k"></div>
+</aside>
+
+<main>
+  <div class="ust">
+    <button id="burger" onclick="yonOch()">☰</button>
+    <div class="jonli"><div class="nuqta"></div><span id="ust-holat">Kengash tayyor</span></div>
+    <div class="rollar">
+      <span class="rol-mini" style="color:var(--r-CEO)">CEO</span>
+      <span class="rol-mini" style="color:var(--r-CTO)">CTO</span>
+      <span class="rol-mini" style="color:var(--r-CFO)">CFO</span>
+      <span class="rol-mini" style="color:var(--r-COO)">COO</span>
+      <span class="rol-mini" style="color:var(--r-CLO)">CLO</span>
+      <span class="rol-mini" style="color:var(--r-CMO)">CMO</span>
+    </div>
+  </div>
+
+  <div id="oqim"><div class="oqim-ich" id="oqim-ich"></div></div>
+
+  <div class="yozish"><div class="yozish-ich">
+    <div class="y-karta">
+      <textarea id="savol" rows="1" placeholder="Kengashga savol bering..."></textarea>
+      <button id="jonat" onclick="jonat()" title="Yuborish (Enter)">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor"><path d="M3.4 20.4 21.8 12 3.4 3.6 3.4 10l13 2-13 2z"/></svg>
+      </button>
+    </div>
+    <div class="y-past">
+      <label class="kalit"><input type="checkbox" id="hamma"><span class="k-ui"></span>6 direktor majburiy</label>
+      <span class="y-izoh">Javoblar faqat manbalarga asoslanadi · har da'voda [n] manba</span>
+    </div>
+  </div></div>
+</main>
+</div>
+
+<div class="fr-parda" id="fr-parda"><div class="fr-oyna" id="fr-oyna"></div></div>
+<div class="fr-parda" id="pl-parda"><div class="fr-oyna" id="pl-oyna"></div></div>
+<div class="fr-parda" id="tn-parda"><div class="fr-oyna" id="tn-oyna"
+     style="width:min(520px,96vw)"></div></div>
+
+<div id="toast"></div>
+
+<script>
+"use strict";
+const ROL_NOMI = {CEO:"Bosh direktor",CTO:"Texnologiya",CFO:"Moliya",COO:"Operatsiya",CLO:"Huquq",CMO:"Marketing"};
+const TUR_IKON = {audio:"🎧",slayd:"📑",jadval:"📊",hujjat:"📄",web:"🌐"};
+const NAMUNALAR = [
+  "Sotuvni oshirish uchun qanday kanallardan foydalanamiz?",
+  "Narxni qanday belgilaymiz — qimmat kam sotamizmi?",
+  "Gipoteza desk nima va uni qanday yuritamiz?",
+  "Birinchi 30 kunda qanday amaliy vazifalar bor?"
+];
+const KESH = {};
+let SUHBATLAR = [], JORIY = null;                // chat-sessiyalar; JORIY = ochiq suhbat id
+let KONFIG = null, SONLAR = null;                // SONLAR: ustoz -> bo'lak soni
+let poll = null, sekundomer = null;
+
+/* ---------- yordamchilar ---------- */
+const $ = s => document.querySelector(s);
+const esc = s => (s??"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+function toast(x){ const t=$("#toast"); t.textContent=x; t.classList.add("kor");
+  clearTimeout(t._t); t._t=setTimeout(()=>t.classList.remove("kor"),3200); }
+const OY = ["yan","fev","mar","apr","may","iyn","iyl","avg","sen","okt","noy","dek"];
+function vaqtF(v){ if(!v) return ""; const m=v.match(/(\d+)-(\d+)-(\d+) (\d+:\d+)/);
+  return m ? `${+m[3]}-${OY[+m[2]-1]} · ${m[4]}` : v; }
+function pastdami(){ const o=$("#oqim"); return o.scrollHeight-o.scrollTop-o.clientHeight<160; }
+function pastga(maj){ const o=$("#oqim"); if(maj||pastdami()) o.scrollTop=o.scrollHeight; }
+async function olJSON(url,opts){ const r=await fetch(url,opts);
+  if(r.status===401){ location.reload(); throw new Error("kirish kerak"); }
+  const j=await r.json().catch(()=>({}));
+  if(!r.ok){ const e=new Error(j.xabar||j.xato||("HTTP "+r.status));
+             e.holat=r.status; e.tana=j; throw e; }
+  return j; }
+const postJSON = (url,tana)=>olJSON(url,{method:"POST",
+  headers:{"Content-Type":"application/json"},body:JSON.stringify(tana)});
+
+/* ---------- API moslamalari (yangi platforma) ---------- */
+const API = {
+  konfig:    () => olJSON("/api/konfig"),
+  suhbatlar: () => olJSON("/api/suhbatlar"),
+  suhbat:    sid => olJSON("/api/suhbat/" + sid),
+  holat:     id => olJSON("/api/holat" + (id ? "?id=" + id : "")),
+  statistika:() => olJSON("/api/statistika"),
+  twin:      id => postJSON("/api/twin", {twin_id: id}),
+  boshla:    tana => postJSON("/api/boshla", tana),
+  planlar:   () => olJSON("/api/planlar"),
+  tolov:     tana => postJSON("/api/tolov/boshla", tana),
+};
+
+/* ---------- markdown ---------- */
+function md(t){
+  // ```fence``` bloklari inline qayta ishlovdan HIMOYA qilinadi (mermaid buzilmasin)
+  const fences = [];
+  t = t.replace(/```(\w*)[ \t]*\r?\n([\s\S]*?)```/g, (_, til, kod) => {
+    fences.push({til: (til||"").toLowerCase(), kod});
+    return "\x00F" + (fences.length - 1) + "\x00";
+  });
+  t = esc(t);
+  const inline = s => s
+    .replace(/\*\*(.+?)\*\*/g,"<b>$1</b>")
+    .replace(/(^|[^*])\*([^*\n]+)\*/g,"$1<i>$2</i>")
+    .replace(/`([^`]+)`/g,"<code>$1</code>")
+    .replace(/\[(\d{1,3}(?:,\s*\d{1,3})*)\]/g,'<span class="iq" data-g="$1">[$1]</span>');
+  const qatorlar = t.split("\n");
+  let html=[], list=null, jadval=[];
+  const listYop=()=>{ if(list){html.push("</"+list+">");list=null;} };
+  const jadvalYop=()=>{ if(!jadval.length) return; let h="<table>";
+    jadval.forEach((r,i)=>{ h+="<tr>"+r.map(c=>(i?"<td>":"<th>")+inline(c)+(i?"</td>":"</th>")).join("")+"</tr>"; });
+    html.push(h+"</table>"); jadval=[]; };
+  for(const q of qatorlar){
+    const s=q.trim();
+    if(/^\|.*\|$/.test(s)){ if(!/^\|[\s:|-]+\|$/.test(s)) jadval.push(s.slice(1,-1).split("|").map(c=>c.trim())); continue; }
+    jadvalYop();
+    if(/^###\s/.test(s)){ listYop(); html.push("<h3>"+inline(s.slice(4))+"</h3>"); }
+    else if(/^##\s/.test(s)){ listYop(); html.push("<h2>"+inline(s.slice(3))+"</h2>"); }
+    else if(/^#\s/.test(s)){ listYop(); html.push("<h1>"+inline(s.slice(2))+"</h1>"); }
+    else if(/^---+$/.test(s)){ listYop(); html.push("<hr>"); }
+    else if(/^[-*]\s+/.test(s)){ if(list!=="ul"){listYop();html.push("<ul>");list="ul";}
+      html.push("<li>"+inline(s.replace(/^[-*]\s+/,""))+"</li>"); }
+    else if(/^\d+\.\s+/.test(s)){ if(list!=="ol"){listYop();html.push("<ol>");list="ol";}
+      html.push("<li>"+inline(s.replace(/^\d+\.\s+/,""))+"</li>"); }
+    else if(!s){ listYop(); }
+    else{ listYop(); html.push("<p>"+inline(s)+"</p>"); }
+  }
+  listYop(); jadvalYop();
+  let natija = html.join("");
+  // fence'larni joyiga qaytarish: mermaid -> diagramma, boshqasi -> kod bloki
+  natija = natija.replace(/(?:<p>)?\x00F(\d+)\x00(?:<\/p>)?/g, (_, i) => {
+    const f = fences[+i]; if(!f) return "";
+    if(f.til === "mermaid")
+      return `<div class="mmd-orab"><pre class="mermaid">${esc(f.kod)}</pre></div>`;
+    return `<pre class="kod">${esc(f.kod)}</pre>`;
+  });
+  return natija;
+}
+
+function mermaidChiz(el){
+  if(!window.mermaid) return;
+  // faqat ko'rinib turgan, hali chizilmagan diagrammalar
+  const tugunlar = [...el.querySelectorAll(".mermaid:not([data-processed])")]
+    .filter(n => n.offsetParent !== null);
+  if(tugunlar.length)
+    mermaid.run({nodes: tugunlar}).catch(()=>{ /* sintaksis xato -> kod ko'rinadi */ });
+}
+if(window.mermaid)
+  mermaid.initialize({startOnLoad:false, theme:"dark",
+    securityLevel:"strict",       // diagramma matni LLM dan keladi: HTML/click yo'q
+
+    themeVariables:{darkMode:true, background:"#0a101f",
+                    primaryColor:"#1a2540", primaryTextColor:"#e6ebf5",
+                    primaryBorderColor:"#5b8cff", lineColor:"#8a94a8",
+                    fontFamily:"Segoe UI, sans-serif"}});
+
+/* ---------- kirish (login) ---------- */
+window.tgOnauth = async user => {
+  try{ await postJSON("/api/kirish/telegram", user); location.reload(); }
+  catch(e){ toast("Kirish xatosi: "+e.message); }
+};
+
+function kirishKorsat(){
+  const tana = $("#kirish-tana"), esl = $("#kirish-eslatma");
+  // parol formasi — faqat ustoz/admin uchun (klientlar TG orqali kiradi)
+  const parolForma = `
+    <details style="margin-top:16px;text-align:left">
+      <summary style="cursor:pointer;font-size:12px;color:var(--xira2);list-style:none">
+        🔑 Ustoz / admin kirishi</summary>
+      <div class="dev-forma" style="margin-top:10px">
+        <input id="p-login" placeholder="login" autocomplete="username">
+      </div>
+      <div class="dev-forma" style="margin-top:8px">
+        <input id="p-parol" type="password" placeholder="parol" autocomplete="current-password">
+        <button onclick="parolKir()">Kirish</button>
+      </div>
+    </details>`;
+  if(KONFIG.dev){
+    tana.innerHTML = `<div class="dev-belgi">DEV REJIM</div>
+      <div class="dev-forma">
+        <input id="dev-ism" placeholder="Ismingiz..." maxlength="60">
+        <button onclick="devKir()">Kirish</button>
+      </div>${parolForma}`;
+    esl.textContent = "Telegram bot sozlanmagan — vaqtincha ism bilan kiriladi.";
+    $("#dev-ism").addEventListener("keydown", e=>{ if(e.key==="Enter") devKir(); });
+  }else if(KONFIG.bot){
+    tana.innerHTML = `<div id="tg-joy"></div>`;
+    const s = document.createElement("script");
+    s.src = "https://telegram.org/js/telegram-widget.js?22"; s.async = true;
+    s.setAttribute("data-telegram-login", KONFIG.bot);
+    s.setAttribute("data-size", "large");
+    s.setAttribute("data-radius", "12");
+    s.setAttribute("data-onauth", "tgOnauth(user)");
+    s.setAttribute("data-request-access", "write");
+    $("#tg-joy").appendChild(s);
+    tana.insertAdjacentHTML("beforeend", parolForma);
+    esl.innerHTML = `Tugma ko'rinmasa: bot uchun <code>/setdomain</code> qilinganini va
+      saytga o'z domeni orqali kirilganini tekshiring. Telegram ilovasida esa
+      <b>@${esc(KONFIG.bot)}</b> botini oching.`;
+  }else{
+    tana.innerHTML = parolForma;
+    esl.textContent = "Bot sozlanmagan — ustoz/admin login bilan kirishi mumkin.";
+  }
+  $("#kirish").classList.add("kor");
+  const pp = $("#p-parol");
+  if(pp) pp.addEventListener("keydown", e=>{ if(e.key==="Enter") parolKir(); });
+}
+
+window.devKir = async ()=>{
+  const ism = $("#dev-ism").value.trim();
+  if(!ism){ toast("Ismingizni yozing"); return; }
+  try{ await postJSON("/api/kirish/dev", {ism}); location.reload(); }
+  catch(e){ toast(e.message); }
+};
+
+window.parolKir = async ()=>{
+  const login = ($("#p-login").value||"").trim();
+  const parol = $("#p-parol").value||"";
+  if(!login || !parol){ toast("Login va parolni kiriting"); return; }
+  try{ await postJSON("/api/kirish/parol", {login, parol}); location.reload(); }
+  catch(e){ toast(e.message); }
+};
+
+function userChiz(u){
+  const bosh = (u.ism||"?").trim().charAt(0).toUpperCase();
+  const belgi = u.rol === "admin" ? ' <span style="color:#f0b90b">ADMIN</span>'
+              : u.rol === "egasi" ? ' <span style="color:#3ddc84">USTOZ</span>' : "";
+  $("#user-k").innerHTML = `
+    <div class="u-avatar">${u.foto?`<img src="${esc(u.foto)}" alt="">`:esc(bosh)}</div>
+    <div style="min-width:0">
+      <div class="u-ism">${esc(u.ism)} ${esc(u.familiya||"")}${belgi}</div>
+      <div class="u-tel">${u.username?"@"+esc(u.username):(u.telefon?"📱 bog'langan":"akkaunt")}</div>
+    </div>
+    <button id="profil-b" title="Profilim — javob uslubini sozlash"
+      onclick="tanishuvOch(false)">👤</button>
+    ${["admin","egasi"].includes(u.rol)?'<a href="/kabinet" title="Kabinet — bilim bazasi" style="color:var(--xira);text-decoration:none;font-size:15px;padding:0 4px">🧠</a>':""}
+    ${u.rol==="admin"?'<a href="/admin" title="Admin panel" style="color:var(--xira);text-decoration:none;font-size:15px;padding:0 4px">⚙</a>':""}
+    <button id="chiqish-b" title="Chiqish" onclick="chiqish()">⏻</button>`;
+}
+
+window.chiqish = async ()=>{
+  try{ await olJSON("/api/chiqish",{method:"POST"}); }catch(e){}
+  location.reload();
+};
+
+/* ---------- obuna / planlar ---------- */
+const somF = n => (n||0).toLocaleString("uz-UZ").replace(/,/g," ");
+
+function pulChiz(){
+  const el = $("#pul-k"), p = KONFIG && KONFIG.pul;
+  // Nazorat o'chiq bo'lsa hech narsa ko'rsatilmaydi — hozirgi tajriba o'zgarmaydi.
+  if(!el || !p || !p.kvota_faol){ if(el) el.style.display="none"; return; }
+  el.style.display = "block";
+  if(p.obuna){
+    const u = Math.min(1, p.obuna.ulush||0);
+    el.className = u > .85 ? "ogoh" : "";
+    el.innerHTML = `<div class="p-bosh">💳 ${esc(p.obuna.plan)}</div>
+      <div>${p.obuna.kun_qoldi} kun qoldi · hajm ${Math.round(u*100)}%</div>
+      <div class="p-chiz"><i style="width:${Math.round(u*100)}%"></i></div>`;
+  }else{
+    const q = p.bepul_qolgan;
+    el.className = q > 0 ? "" : "ogoh";
+    el.innerHTML = `<div class="p-bosh">🎁 Bepul savollar</div>
+      <div>${q > 0 ? q + " ta / " + p.bepul_jami + " tadan qoldi"
+                   : "tugadi — rejani tanlang"}</div>
+      <div class="p-chiz"><i style="width:${Math.round(q/p.bepul_jami*100)}%"></i></div>`;
+  }
+}
+
+function plYop(){ $("#pl-parda").classList.remove("kor"); $("#pl-oyna").innerHTML=""; }
+$("#pl-parda").addEventListener("click", e=>{ if(e.target.id==="pl-parda") plYop(); });
+
+window.planlarOch = async (sabab)=>{
+  const oyna = $("#pl-oyna");
+  $("#pl-parda").classList.add("kor");
+  oyna.innerHTML = `<div class="fr-yuk"><div class="spin"></div>Rejalar olinmoqda…</div>`;
+  let d;
+  try{ d = await API.planlar(); }
+  catch(e){ oyna.innerHTML = `<div class="fr-yuk">Ochilmadi: ${esc(e.message)}</div>
+    <div class="fr-tugmalar"><button class="fr-tug" onclick="plYop()">Yopish</button></div>`;
+    return; }
+
+  const bosh = sabab && sabab.xabar
+    ? `<div class="fr-matn" style="white-space:normal">${esc(sabab.xabar)}</div>` : "";
+  const kartalar = (d.planlar||[]).map(p=>{
+    const tugmalar = (d.usullar||[]).map(u=>
+      `<button class="fr-tug" onclick="tolovBoshla(${p.id},'${u}')">
+         ${u==="click"?"Click":"Payme"} orqali to'lash</button>`).join("");
+    const xus = (p.funksiyalar||[]).map(f=>`<li>${esc(f)}</li>`).join("");
+    return `<div class="pl-karta">
+      <h4>${esc(p.nom)}</h4>
+      <div class="pl-narx">${somF(p.narx_som)} <span>so'm / ${p.kun_soni} kun</span></div>
+      <div class="pl-tavsif">${esc(p.tavsif||"")}</div>
+      ${xus?`<ul class="pl-xus">${xus}</ul>`:""}
+      <div class="fr-tugmalar">${tugmalar||
+        '<span class="pl-izoh">To\'lov usuli hali ulanmagan</span>'}</div>
+    </div>`;
+  }).join("");
+
+  oyna.innerHTML = `
+    <div class="fr-bosh">
+      <div><div class="fr-nom">Rejalar</div>
+        <div class="fr-joy">Ustozning bilim bazasidan cheklovsiz foydalanish</div></div>
+      <button class="fr-yop" onclick="plYop()">✕</button>
+    </div>
+    ${bosh}
+    ${kartalar || '<div class="pl-izoh">Rejalar hali e\'lon qilinmagan.</div>'}
+    <div class="pl-izoh">To'lov Click yoki Payme sahifasida amalga oshiriladi.
+      To'lov tasdiqlangach obuna avtomatik faollashadi va Telegramga xabar keladi.</div>`;
+};
+
+window.tolovBoshla = async (plan_id, usul)=>{
+  try{
+    const j = await API.tolov({plan_id, usul});
+    window.open(j.havola, "_blank", "noopener");
+    toast("To'lov sahifasi ochildi");
+  }catch(e){ toast(e.message); }
+};
+
+/* ---------- tanishuv testi (profil 2.0) ----------
+   Savollar serverdan keladi, javob variantlari qat'iy — erkin matn faqat
+   "maqsad" maydonida. Savol oqimi javobga qarab tarmoqlanadi (shart). */
+let TN = {savollar: [], javoblar: {}, orin: 0, birinchi: false};
+
+const tnKorinadi = ()=> TN.savollar.filter(s =>
+  Object.entries(s.shart||{}).every(([k,v]) => v.includes(TN.javoblar[k])));
+
+function tnYop(){ $("#tn-parda").classList.remove("kor"); $("#tn-oyna").innerHTML=""; }
+$("#tn-parda").addEventListener("click", e=>{
+  if(e.target.id==="tn-parda" && !TN.birinchi) tnYop(); });
+
+window.tanishuvOch = async (birinchi)=>{
+  $("#tn-parda").classList.add("kor");
+  $("#tn-oyna").innerHTML = `<div class="fr-yuk"><div class="spin"></div>Yuklanmoqda…</div>`;
+  try{
+    const d = await olJSON("/api/tanishuv");
+    TN = {savollar: d.savollar, javoblar: d.javoblar||{}, orin: 0, birinchi: !!birinchi};
+    tnChiz();
+  }catch(e){
+    $("#tn-oyna").innerHTML = `<div class="fr-yuk">Ochilmadi: ${esc(e.message)}</div>
+      <div class="fr-tugmalar"><button class="fr-tug" onclick="tnYop()">Yopish</button></div>`;
+  }
+};
+
+function tnChiz(){
+  const royxat = tnKorinadi();
+  if(TN.orin >= royxat.length){ tnYakun(); return; }
+  const s = royxat[TN.orin];
+  const ulush = Math.round(TN.orin / royxat.length * 100);
+  const tanlangan = TN.javoblar[s.kod];
+
+  const tana = s.tur === "matn"
+    ? `<textarea class="tn-matn" id="tn-matn" maxlength="200"
+         placeholder="Ixtiyoriy — bo'sh qoldirsangiz ham bo'ladi">${esc(tanlangan||"")}</textarea>`
+    : s.javoblar.map(j=>
+        `<button class="tn-variant${tanlangan===j.kod?" tanlangan":""}"
+           onclick="tnTanla('${s.kod}','${j.kod}')">${esc(j.matn)}</button>`).join("");
+
+  const oxirgi = TN.orin === royxat.length - 1;
+  $("#tn-oyna").innerHTML = `
+    <div class="tn-qadam">${TN.birinchi?"Tanishuv":"Profilim"} · ${TN.orin+1}/${royxat.length}</div>
+    <div class="tn-progress"><i style="width:${ulush}%"></i></div>
+    <div class="tn-savol">${esc(s.savol)}</div>
+    ${s.izoh?`<div class="tn-izoh">${esc(s.izoh)}</div>`:""}
+    ${tana}
+    <div class="fr-tugmalar">
+      ${TN.orin>0?'<button class="fr-tug" onclick="tnOrqaga()">← Orqaga</button>':""}
+      ${s.tur==="matn"||s.ixtiyoriy
+        ? `<button class="fr-tug" onclick="tnKeyingi()">${oxirgi?"Saqlash":"Keyingi →"}</button>`
+        : ""}
+      <button class="fr-tug" style="margin-left:auto"
+        onclick="tnOtkaz()">${TN.birinchi?"Keyinroq":"Yopish"}</button>
+    </div>
+    <div class="pl-izoh">Javoblaringiz javob uslubini moslash uchun ishlatiladi —
+      istalgan vaqtda o'zgartirishingiz mumkin.</div>`;
+}
+
+window.tnTanla = (kod, qiymat)=>{
+  TN.javoblar[kod] = qiymat;
+  TN.orin++;
+  tnChiz();
+};
+window.tnOrqaga = ()=>{ if(TN.orin>0){ TN.orin--; tnChiz(); } };
+window.tnKeyingi = ()=>{
+  const m = $("#tn-matn");
+  if(m){ const v = m.value.trim(); if(v) TN.javoblar.maqsad = v;
+         else delete TN.javoblar.maqsad; }
+  TN.orin++; tnChiz();
+};
+
+async function tnYakun(){
+  $("#tn-oyna").innerHTML = `<div class="fr-yuk"><div class="spin"></div>Saqlanmoqda…</div>`;
+  try{
+    const j = await postJSON("/api/tanishuv", {javoblar: TN.javoblar});
+    if(KONFIG){ KONFIG.tanishuv_kerak = false; }
+    $("#tn-oyna").innerHTML = `
+      <div class="tn-qadam">Tayyor</div>
+      <div class="tn-savol" style="margin-top:6px">Rahmat! Profil saqlandi.</div>
+      <div class="tn-izoh">${esc(j.tavsif||"")}</div>
+      <div class="pl-izoh">Javoblar endi shu sozlamaga moslanadi. O'zgartirish uchun
+        pastdagi ismingiz yonidagi 👤 belgisini bosing.</div>
+      <div class="fr-tugmalar"><button class="fr-tug" onclick="tnYop()">Yopish</button></div>`;
+  }catch(e){
+    $("#tn-oyna").innerHTML = `<div class="fr-yuk">Saqlanmadi: ${esc(e.message)}</div>
+      <div class="fr-tugmalar"><button class="fr-tug" onclick="tnYop()">Yopish</button></div>`;
+  }
+}
+
+window.tnOtkaz = async ()=>{
+  if(TN.birinchi){
+    try{ await postJSON("/api/tanishuv/otkaz", {}); }catch(e){}
+    if(KONFIG) KONFIG.tanishuv_kerak = false;
+  }
+  tnYop();
+};
+
+/* ---------- majlis kartasi ---------- */
+function avatarlarHTML(rollar){
+  return '<div class="avatarlar">'+(rollar||[]).map(r=>
+    `<div class="avatar" style="background:var(--r-${r})" title="${r}">${r}</div>`).join("")+"</div>";
+}
+
+function birikHTML(rec){
+  const yol = rec && rec.biriktirma;
+  if(!yol) return "";
+  const toza = yol.split("/").pop().replace(/^\d{8}_\d{6}_/,"").replace(/\.xlsx$/,"");
+  return `<a class="birik" href="/api/majlis/${rec.id}/fayl" download>
+    <span class="b-ikon">📎</span>
+    <span>${esc(toza)}<span class="b-izoh">Kengash siz uchun to'ldirib tayyorlagan fayl</span></span>
+    <span class="b-yuk">⬇ Yuklab olish</span></a>`;
+}
+
+function juftYasa(rec){
+  // rec = majlis yozuvi: {id, savol, xulosa, hisobot:{direktorlar, manbalar, twin},
+  //                       biriktirma, davomiylik, vaqt}
+  const h = rec.hisobot || {};
+  const dirlar = (h.direktorlar||[]).map(d=>d.rol);
+  const twinNom = (h.twin && h.twin.nom) ? " · 👨‍🏫 " + h.twin.nom : "";
+  const el = document.createElement("div");
+  el.className = "juft"; el.dataset.mid = rec.id;
+  el.innerHTML = `
+    <div class="savol-p">${esc(rec.savol)}</div>
+    <div class="savol-meta">${vaqtF(rec.vaqt)}</div>
+    <div class="karta" data-karta>
+      <div class="k-bosh">
+        <div class="gerb">🏛️</div>
+        <div class="kim">KENGASH<span>${dirlar.length} direktor + RAIS${rec.davomiylik?` · ${rec.davomiylik}s`:""}${twinNom}</span></div>
+        <div class="oxir">${avatarlarHTML(dirlar)}</div>
+      </div>
+      <div data-joy></div>
+      ${birikHTML(rec)}
+    </div>`;
+  hisobotChiz(el, rec);
+  return el;
+}
+
+/* "test" skilli natijasi — o'z-o'zini tekshirish savollari */
+function testHTML(rec){
+  const t = ((rec.hisobot||{}).skilllar||{}).test;
+  if(!t || !(t.savollar||[]).length) return "";
+  const savollar = t.savollar.map((s,i)=>`
+    <div class="ts-savol" data-ts="${i}">
+      <div class="ts-matn">${i+1}. ${esc(s.savol)}</div>
+      ${s.variantlar.map((v,n)=>
+        `<button class="ts-variant" data-n="${n}" data-togri="${n===s.togri?1:0}"
+          onclick="tsJavob(this)">${esc(v)}</button>`).join("")}
+      <div class="ts-izoh" hidden>${esc(s.izoh||"")}</div>
+    </div>`).join("");
+  return `<details class="manba-blok"><summary><span class="strelka">▶</span>
+      🧠 O'zingizni tekshiring — ${t.savollar.length} ta savol</summary>
+    <div class="ts-blok">${savollar}</div></details>`;
+}
+
+window.tsJavob = (tug)=>{
+  const blok = tug.closest(".ts-savol");
+  if(blok.dataset.javob) return;                 // bir marta javob beriladi
+  blok.dataset.javob = "1";
+  blok.querySelectorAll(".ts-variant").forEach(b=>{
+    if(b.dataset.togri === "1") b.classList.add("ts-togri");
+    else if(b === tug) b.classList.add("ts-xato");
+    b.disabled = true;
+  });
+  const izoh = blok.querySelector(".ts-izoh");
+  if(izoh && izoh.textContent.trim()) izoh.hidden = false;
+};
+
+function hisobotChiz(juft, rec){
+  const joy = juft.querySelector("[data-joy]");
+  const h = rec.hisobot || {};
+  const manbalar = h.manbalar || [];
+  const manbaXarita = {};
+  manbalar.forEach(m => manbaXarita[m.g] = m);
+
+  let tabs = `<button class="tab faol" data-tab="RAIS"><span class="t-nuq" style="background:linear-gradient(135deg,#5b8cff,#8b5bff)"></span>RAIS xulosasi</button>`;
+  let panellar = `<div class="k-tana mdn" data-panel="RAIS">${md(rec.xulosa||"")}</div>`;
+  for(const d of (h.direktorlar||[])){
+    tabs += `<button class="tab" data-tab="${d.rol}"><span class="t-nuq" style="background:${d.rang||'var(--urgu)'}"></span>${d.rol}</button>`;
+    panellar += `<div class="k-tana mdn" data-panel="${d.rol}" hidden>${md(d.javob||"")}</div>`;
+  }
+  let manbaHTML = "";
+  if(manbalar.length){
+    manbaHTML = `<details class="manba-blok">
+      <summary><span class="strelka">▶</span>📚 Manbalar — ${manbalar.length} ta noyob bo'lak (bosing — aynan o'sha joy ochiladi)</summary>
+      <div class="manba-list">${manbalar.map(m=>
+        `<div class="manba-el" data-g="${m.g}" data-bid="${m.id||""}">
+           <span class="g">[${m.g}]</span>
+           <span>${TUR_IKON[m.tur]||"📄"} ${esc(m.manba)}</span>
+           <span class="joy">${esc(m.joy)}</span>
+           <span class="koch">${m.audio_bosh!=null?"🎧 eshitish":(m.sahifa_png?"🖼 ko'rish":"↗ ochish")}</span></div>`).join("")}</div>
+    </details>`;
+  }
+  joy.innerHTML = `<div class="tablar">${tabs}</div>${panellar}${testHTML(rec)}${manbaHTML}`;
+
+  joy.querySelectorAll(".iq").forEach(iq=>{
+    const gl = iq.dataset.g.split(",").map(x=>+x.trim());
+    const t = gl.map(g=>manbaXarita[g]).filter(Boolean)
+                .map(m=>`[${m.g}] ${m.manba} — ${m.joy}`).join("\n");
+    if(t) iq.title = t;
+  });
+  joy.querySelector(".tablar").addEventListener("click", e=>{
+    const b = e.target.closest(".tab"); if(!b) return;
+    joy.querySelectorAll(".tab").forEach(x=>x.classList.toggle("faol", x===b));
+    joy.querySelectorAll("[data-panel]").forEach(p=>p.hidden = p.dataset.panel !== b.dataset.tab);
+    mermaidChiz(joy);
+  });
+  mermaidChiz(joy);
+}
+
+document.addEventListener("click", e=>{
+  const el0 = e.target.closest(".manba-el");
+  if(el0){ if(el0.dataset.bid) fragmentOch(+el0.dataset.bid); return; }
+  const iq = e.target.closest(".iq"); if(!iq) return;
+  const karta = iq.closest(".karta"); if(!karta) return;
+  const blok = karta.querySelector(".manba-blok"); if(!blok) return;
+  const g = iq.dataset.g.split(",")[0].trim();
+  const el = blok.querySelector(`.manba-el[data-g="${g}"]`);
+  if(el && el.dataset.bid){ fragmentOch(+el.dataset.bid); return; }
+  blok.open = true;
+  if(el){ el.scrollIntoView({block:"nearest",behavior:"smooth"});
+    el.classList.remove("milt"); void el.offsetWidth; el.classList.add("milt"); }
+});
+
+/* ---------- aynan olingan fragment (dars yozuvining o'sha daqiqasi / slayd) ---------- */
+let FR_KUZAT = null;
+
+function frYop(){ clearTimeout(FR_KUZAT); FR_KUZAT=null;
+  $("#fr-parda").classList.remove("kor"); $("#fr-oyna").innerHTML=""; }
+$("#fr-parda").addEventListener("click", e=>{ if(e.target.id==="fr-parda") frYop(); });
+document.addEventListener("keydown", e=>{ if(e.key==="Escape" && FR_OCHIQ()) frYop(); });
+const FR_OCHIQ = ()=> $("#fr-parda").classList.contains("kor");
+
+async function fragmentOch(bid){
+  clearTimeout(FR_KUZAT);
+  $("#fr-parda").classList.add("kor");
+  $("#fr-oyna").innerHTML = `<div class="fr-yuk"><div class="spin"></div>Manba olinmoqda…</div>`;
+  try{
+    const b = await olJSON("/api/bolak/" + bid);
+    frChiz(b);
+    if(b.fragment.audio && b.fragment.audio_holat !== "tayyor") frTayyorla(bid);
+  }catch(e){
+    $("#fr-oyna").innerHTML = `<div class="fr-yuk">Manba ochilmadi: ${esc(e.message)}</div>
+      <div class="fr-tugmalar"><button class="fr-tug" onclick="frYop()">Yopish</button></div>`;
+  }
+}
+
+function frChiz(b){
+  const f = b.fragment || {};
+  let media = "";
+  if(f.audio){
+    media += `<div class="fr-blok" id="fr-audio">
+      <div class="fr-sarl">🎧 Dars yozuvining aynan shu qismi</div>
+      ${f.audio_holat === "tayyor"
+        ? `<audio controls preload="none" src="/api/bolak/${b.id}/audio"></audio>`
+        : `<div class="fr-yuk"><div class="spin"></div>Kesib olinmoqda — bir necha soniya…</div>`}
+    </div>`;
+  }
+  if(f.rasm){
+    media += `<div class="fr-blok">
+      <div class="fr-sarl">🖼 Manbadagi sahifa</div>
+      <img loading="lazy" src="/api/bolak/${b.id}/rasm" alt="${esc(b.joy)}">
+    </div>`;
+  }
+  if(!f.audio && !f.rasm && b.manba_url){
+    media += `<div class="fr-blok"><div class="fr-sarl">🌐 Asl sahifa</div>
+      <a class="fr-tug" style="margin-top:8px" href="${esc(b.manba_url)}" target="_blank"
+         rel="noopener">Manbani ochish ↗</a></div>`;
+  }
+  $("#fr-oyna").innerHTML = `
+    <div class="fr-bosh">
+      <div>
+        <div class="fr-nom">${TUR_IKON[b.tur]||"📄"} ${esc(b.manba)}</div>
+        <div class="fr-joy">${esc(b.joy)}${b.twin?" · 👨‍🏫 "+esc(b.twin):""}</div>
+      </div>
+      <button class="fr-yop" onclick="frYop()" title="Yopish (Esc)">✕</button>
+    </div>
+    ${media}
+    <div class="fr-blok">
+      <div class="fr-sarl">📝 Javob shu matnga tayangan</div>
+      <div class="fr-matn">${esc(b.matn||"")}</div>
+    </div>
+    <div class="fr-tugmalar">
+      <button class="fr-tug" onclick="frTelegram(${b.id})">📨 Telegramga yuborish</button>
+      <button class="fr-tug" onclick="frYop()">Yopish</button>
+    </div>`;
+}
+
+async function frTayyorla(bid){
+  try{ await postJSON(`/api/bolak/${bid}/fragment`, {}); }
+  catch(e){ return frXato(e.message); }
+  let urinish = 0;
+  const tekshir = async ()=>{
+    if(!FR_OCHIQ()) return;
+    try{
+      const b = await olJSON("/api/bolak/" + bid);
+      const h = b.fragment.audio_holat;
+      if(h === "tayyor"){
+        const q = $("#fr-audio");
+        if(q) q.innerHTML = `<div class="fr-sarl">🎧 Dars yozuvining aynan shu qismi</div>
+          <audio controls autoplay src="/api/bolak/${bid}/audio"></audio>`;
+        return;
+      }
+      if(h === "xato") return frXato(b.fragment.audio_xato || "kesib bo'lmadi");
+      if(++urinish > 40) return frXato("juda uzoq kutildi — keyinroq urinib ko'ring");
+      FR_KUZAT = setTimeout(tekshir, 2000);
+    }catch(e){ frXato(e.message); }
+  };
+  FR_KUZAT = setTimeout(tekshir, 1800);
+}
+
+function frXato(xabar){
+  const q = $("#fr-audio");
+  if(q) q.innerHTML = `<div class="fr-sarl">🎧 Audio</div>
+    <div class="fr-xato">Kesma tayyorlanmadi: ${esc(xabar)}</div>`;
+}
+
+async function frTelegram(bid){
+  try{ await postJSON(`/api/bolak/${bid}/tg`, {});
+       toast("Telegramga yuborilmoqda — botdan qarang"); }
+  catch(e){ toast(e.message); }
+}
+
+/* ---------- aniqlashtirish (tushunarsiz savol) ---------- */
+function tushunarsizKarta(savol, izoh, variantlar){
+  const el = document.createElement("div");
+  el.className = "juft";
+  el.innerHTML = `
+    <div class="savol-p">${esc(savol)}</div>
+    <div class="karta">
+      <div class="k-bosh">
+        <div class="gerb">🤔</div>
+        <div class="kim">KENGASH<span>savolni aniqlashtirish</span></div>
+      </div>
+      <div class="k-tana">
+        <p style="color:var(--xira);margin:0 0 14px">${esc(izoh||"Savolingiz biroz umumiy chiqdi.")}
+          <b style="color:var(--matn)">Siz shuni so'ramoqchimidingiz?</b></p>
+        <div class="varlar">
+          ${(variantlar||[]).map((v,i)=>
+            `<button class="var-btn" style="animation-delay:${i*70}ms">${esc(v)}</button>`).join("")}
+          <button class="var-btn var-oz" style="animation-delay:${(variantlar||[]).length*70}ms">✏️ Yo'q, aynan o'z savolimni yuboraman</button>
+        </div>
+      </div>
+    </div>`;
+  el.querySelectorAll(".var-btn:not(.var-oz)").forEach(b=>
+    b.addEventListener("click", ()=>{ el.remove(); jonatMatn(b.textContent.trim(), false); }));
+  el.querySelector(".var-oz").addEventListener("click", ()=>{ el.remove(); jonatMatn(savol, true); });
+  return el;
+}
+
+/* ---------- yon panel / suhbatlar (chat-sessiyalar) ---------- */
+function tarixChiz(){
+  const f = ($("#filtr").value||"").toLowerCase();
+  $("#tarix").innerHTML = [...SUHBATLAR].reverse()
+    .filter(r=>!f || (r.sarlavha||"").toLowerCase().includes(f))
+    .map((r,i)=>`<div class="t-el${r.id===JORIY?" faol":""}" data-sid="${r.id}" style="animation-delay:${Math.min(i*35,350)}ms">
+        <div class="sv">${esc(r.sarlavha||"(nomsiz suhbat)")}</div>
+        <div class="meta"><span>${vaqtF(r.yangilangan)}</span><span>${r.soni||0} savol</span></div>
+      </div>`).join("") || `<div style="padding:14px;font-size:12.5px;color:var(--xira2)">Hech narsa topilmadi</div>`;
+}
+$("#tarix").addEventListener("click", e=>{
+  const el = e.target.closest(".t-el"); if(!el) return;
+  suhbatOch(+el.dataset.sid);
+});
+$("#filtr").addEventListener("input", tarixChiz);
+
+function heroHTML(){
+  const t = (KONFIG.twinlar||[]).find(x=>x.id===KONFIG.user.twin);
+  return `<div id="hero">
+      <h1>Salom, ${esc(KONFIG.user.ism)}!</h1>
+      <p>${t ? `<b>${esc(t.nom)}</b> ustozning digital twini` : "Digital twin"} —
+         direktorlar kengashi faqat yuklangan manbalar asosida maslahat beradi.
+         Har javobda aniq manba: fayl, vaqt oralig'i, slayd raqami.</p>
+      <div class="chiplar">${NAMUNALAR.map(n=>
+        `<button class="chip" onclick="document.getElementById('savol').value=this.textContent.trim();document.getElementById('savol').focus()">${n}</button>`).join("")}</div>
+    </div>`;
+}
+
+function boshSahna(){                       // yangi bo'sh chat (Claude uslubi)
+  JORIY = null; tarixChiz();
+  $("#oqim-ich").innerHTML = heroHTML();
+  $("#oqim").scrollTop = 0;
+}
+
+async function suhbatOch(sid){              // tarixdan suhbatni ochish
+  JORIY = sid; tarixChiz();
+  const ich = $("#oqim-ich"); ich.innerHTML = "";
+  try{
+    const roy = await API.suhbat(sid);
+    roy.forEach((r,i)=>{ const el=juftYasa(r);
+      el.style.animationDelay=Math.min(i*60,300)+"ms"; ich.appendChild(el); });
+  }catch(e){ toast(e.message); }
+  yonYop(); setTimeout(()=>pastga(true), 200);
+}
+
+function yonOch(){ $("#yon").classList.add("ochiq"); $("#parda").classList.add("kor"); }
+function yonYop(){ $("#yon").classList.remove("ochiq"); $("#parda").classList.remove("kor"); }
+function yangiSavol(){
+  yonYop(); boshSahna();
+  // telefonda avtomatik fokus klaviaturani ochib layoutni siqib yuborardi —
+  // fokus faqat sichqonchali (desktop) qurilmada
+  if(matchMedia("(hover:hover)").matches) $("#savol").focus();
+}
+
+async function statYangila(){
+  try{ const s = await API.statistika();
+    $("#stat").innerHTML = `📊 <b>${s.majlislar}</b>&nbsp;majlis · <b>${s.bolaklar}</b>&nbsp;bo'lak bilim`;
+  }catch(e){}
+  // majlisdan keyin qolgan hajm/bepul savol o'zgargan bo'lishi mumkin
+  try{ const k = await API.planlar();
+    if(k.holat && KONFIG){ KONFIG.pul = k.holat; pulChiz(); }
+  }catch(e){}
+}
+
+/* ---------- ustoz (digital twin) tanlovi ---------- */
+function ustozChiz(){
+  const el = $("#ustozlar"); if(!el || !KONFIG.user) return;
+  const joriy = KONFIG.user.twin;
+  el.innerHTML = (KONFIG.twinlar||[]).map(t=>
+    `<button class="ust-el${t.id===joriy?" faol":""}" data-u="${t.id}">
+       <span class="ust-nuq"></span>👨‍🏫 ${esc(t.nom)}
+       <span class="son">${t.bolak_soni ? t.bolak_soni+" bo'lak" : "bilim yo'q"}</span>
+     </button>`).join("") ||
+    `<div style="padding:10px;font-size:12px;color:var(--xira2)">Twin sozlanmagan</div>`;
+}
+
+$("#ustozlar").addEventListener("click", async e=>{
+  const b = e.target.closest(".ust-el"); if(!b) return;
+  const yangi = +b.dataset.u;
+  const eski = KONFIG.user.twin;
+  if(eski === yangi) return;
+  KONFIG.user.twin = yangi; ustozChiz();       // darhol ko'rsatamiz
+  try{
+    await API.twin(yangi);
+    const t = (KONFIG.twinlar||[]).find(x=>x.id===yangi);
+    toast("Ustoz: " + (t ? t.nom : yangi));
+    if(JORIY == null) boshSahna();             // yangi chatda hero yangilanadi
+  }catch(err){
+    KONFIG.user.twin = eski; ustozChiz();
+    toast(err.message);
+  }
+});
+
+/* ---------- jonli majlis ---------- */
+function jonliKarta(savol){
+  const el = document.createElement("div");
+  el.className = "juft"; el.id = "jonli-juft";
+  el.innerHTML = `
+    <div class="savol-p">${esc(savol)}</div>
+    <div class="karta jonli-k">
+      <div class="k-bosh">
+        <div class="gerb">🏛️</div>
+        <div class="kim">KENGASH<span>majlis ketmoqda</span></div>
+        <div class="oxir"><span class="vaqt-t" data-vaqt>0s</span></div>
+      </div>
+      <div class="bosqich"><div class="spin"></div><span data-bosqich class="nuqtalar">Savol tekshirilmoqda</span></div>
+      <div class="chip-qator" data-chiplar></div>
+      <div data-shim></div>
+      <details class="jurnal"><summary>⌨ Jarayon jurnali</summary><pre data-jurnal></pre></details>
+    </div>`;
+  return el;
+}
+
+function chipQoy(qator, rol){
+  if(qator.querySelector(`[data-rol="${rol}"]`)) return;
+  const c = document.createElement("div");
+  c.className = "d-chip"; c.dataset.rol = rol;
+  c.style.color = `var(--r-${rol})`;
+  c.innerHTML = `<div class="spin"></div><span class="belgi">✓</span>${rol} <span style="font-weight:400;color:var(--xira)">${ROL_NOMI[rol]}</span>`;
+  qator.appendChild(c);
+}
+
+function jonliYangila(h){
+  const el = $("#jonli-juft"); if(!el) return;
+  const chiplar = el.querySelector("[data-chiplar]");
+  const bosqich = el.querySelector("[data-bosqich]");
+  el.querySelector("[data-jurnal]").textContent = (h.loglar||[]).join("\n");
+
+  if(h.holat==="navbatda"){
+    bosqich.textContent = h.navbat_orni>1
+      ? `Navbatda: ${h.navbat_orni}-o'rin (oldingi majlislar tugashi kutilmoqda)`
+      : "Navbatda — hozir boshlanadi";
+    return;
+  }
+  for(const q of (h.loglar||[])){
+    let m = q.match(/RAIS yo'naltirdi: ([A-Z, ]+) —/);
+    if(m){ m[1].split(",").map(s=>s.trim()).filter(r=>ROL_NOMI[r]).forEach(r=>chipQoy(chiplar,r));
+      bosqich.textContent = "Direktorlar javob tayyorlamoqda"; }
+    m = q.match(/(CEO|CTO|CFO|COO|CLO|CMO) javob berdi/);
+    if(m){ chipQoy(chiplar, m[1]);
+      const c = chiplar.querySelector(`[data-rol="${m[1]}"]`); if(c) c.classList.add("tayyor"); }
+    if(q.includes("RAIS sintez qilmoqda")){
+      bosqich.textContent = "Rais yakuniy xulosani yozmoqda";
+      if(!el.querySelector(".shimmer"))
+        el.querySelector("[data-shim]").innerHTML =
+          '<div class="shimmer"></div><div class="shimmer" style="width:72%"></div>';
+    }
+    if(q.includes("Shablon aniqlandi:"))
+      bosqich.textContent = "Siz uchun tayyor fayl to'ldirilmoqda (Excel)";
+  }
+}
+
+function kuzat(jobId){
+  $("#jonat").disabled = true;
+  $("#ust-holat").textContent = "Majlis ketmoqda...";
+  let bosh = Date.now();
+  clearInterval(sekundomer); clearInterval(poll);
+  sekundomer = setInterval(()=>{ const v=document.querySelector("#jonli-juft [data-vaqt]");
+    if(v) v.textContent = Math.round((Date.now()-bosh)/1000)+"s"; },1000);
+
+  poll = setInterval(async ()=>{
+    try{
+      const h = await API.holat(jobId);
+      jonliYangila(h); if(pastdami()) pastga(true);
+      if(h.holat==="tayyor" || h.holat==="xato"){
+        clearInterval(poll); clearInterval(sekundomer);
+        $("#jonat").disabled = false;
+        $("#ust-holat").textContent = "Kengash tayyor";
+        const jonli = $("#jonli-juft");
+        if(h.holat==="xato"){
+          if(jonli){ jonli.querySelector(".karta").classList.add("xato-k");
+            jonli.querySelector(".bosqich").innerHTML = "⚠ Xato: "+esc(h.xato||"noma'lum");
+            jonli.id = ""; }
+          toast("Majlis xato bilan tugadi");
+        }else if(h.majlis_id){
+          SUHBATLAR = await API.suhbatlar();
+          tarixChiz(); statYangila();
+          // faqat user hozir o'sha suhbatda tursagina kartani almashtiramiz
+          if(jonli && h.suhbat === JORIY){
+            const rec = await olJSON("/api/majlis/"+h.majlis_id);
+            jonli.replaceWith(juftYasa(rec));
+            setTimeout(()=>pastga(false),350);
+          }
+          toast("Majlis yakunlandi ✓");
+        }
+      }
+    }catch(e){ /* server bir zum javob bermasa keyingi urinishda oladi */ }
+  }, 1000);
+}
+
+/* ---------- yuborish ---------- */
+async function jonatMatn(savol, majbur){
+  if($("#jonat").disabled) return;
+  const hero = $("#hero"); if(hero) hero.remove();
+  const el = jonliKarta(savol);
+  $("#oqim-ich").appendChild(el); pastga(true);
+  $("#jonat").disabled = true;
+  $("#ust-holat").textContent = "Savol tekshirilmoqda...";
+  let j;
+  try{
+    j = await API.boshla({savol, hamma:$("#hamma").checked, majbur,
+                          suhbat: JORIY, twin_id: KONFIG.user.twin});
+  }catch(e){
+    el.remove(); $("#jonat").disabled = false;
+    $("#ust-holat").textContent = "Kengash tayyor";
+    if(e.holat === 402){                       // kvota/obuna to'sig'i
+      if(e.tana && e.tana.pul && KONFIG) { KONFIG.pul = e.tana.pul; pulChiz(); }
+      planlarOch(e.tana);
+    } else toast(e.message);
+    return;
+  }
+  if(j.holat === "tushunarsiz"){
+    $("#jonat").disabled = false;
+    $("#ust-holat").textContent = "Kengash tayyor";
+    el.replaceWith(tushunarsizKarta(savol, j.izoh, j.variantlar));
+    pastga(true); return;
+  }
+  // yangi chat edi -> server yangi suhbat ochdi, yon panelga qo'shamiz
+  if(JORIY == null && j.job && j.job.suhbat){
+    JORIY = j.job.suhbat;
+    SUHBATLAR.push({id: JORIY, sarlavha: savol.slice(0,80),
+                    yangilangan: null, soni: 1});
+    tarixChiz();
+  }
+  if($("#hamma").checked)
+    ["CEO","CTO","CFO","COO","CLO","CMO"].forEach(r=>chipQoy(el.querySelector("[data-chiplar]"),r));
+  kuzat(j.job.id);
+}
+
+function jonat(){
+  const t = $("#savol");
+  const savol = t.value.trim();
+  if(!savol || $("#jonat").disabled) return;
+  t.value = ""; t.style.height = "auto"; localStorage.removeItem("kengash-qoralama");
+  jonatMatn(savol, false);
+}
+
+/* ---------- yozish paneli xatti-harakati ---------- */
+const ta = $("#savol");
+ta.addEventListener("input", ()=>{ ta.style.height="auto";
+  ta.style.height = Math.min(ta.scrollHeight,180)+"px";
+  localStorage.setItem("kengash-qoralama", ta.value); });
+ta.addEventListener("keydown", e=>{
+  if(e.key==="Enter" && !e.shiftKey){ e.preventDefault(); jonat(); } });
+$("#hamma").addEventListener("change", e=>
+  localStorage.setItem("kengash-hamma", e.target.checked ? "1":""));
+document.addEventListener("keydown", e=>{
+  if((e.ctrlKey||e.metaKey) && e.key.toLowerCase()==="k"){ e.preventDefault(); $("#filtr").focus(); }
+  if(e.key==="Escape") yonYop(); });
+
+/* ---------- boshlash ---------- */
+async function ilovaBoshla(){
+  userChiz(KONFIG.user);
+  pulChiz();
+  ustozChiz();
+  ta.value = localStorage.getItem("kengash-qoralama")||"";
+  if(ta.value){ ta.style.height="auto"; ta.style.height=Math.min(ta.scrollHeight,180)+"px"; }
+  $("#hamma").checked = localStorage.getItem("kengash-hamma")==="1";
+
+  try{ SUHBATLAR = await API.suhbatlar(); }
+  catch(e){ toast("Server bilan aloqa yo'q"); return; }
+  statYangila();
+
+  // birinchi kirish — tanishuv testi (o'tkazib yuborish mumkin)
+  if(KONFIG.tanishuv_kerak) setTimeout(()=>tanishuvOch(true), 700);
+
+  // majlis hali ketayotgan bo'lsa — o'sha suhbatni ochib davom ettiramiz
+  let faol = null;
+  try{
+    const h = await API.holat();
+    if(h.holat && h.holat!=="bosh") faol = h;
+  }catch(e){}
+  if(faol){
+    if(faol.suhbat) await suhbatOch(faol.suhbat);
+    else boshSahna();
+    $("#oqim-ich").appendChild(jonliKarta(faol.savol||"…"));
+    jonliYangila(faol); pastga(true); kuzat(faol.id);
+  }else{
+    boshSahna();   // har ochilishda yangi toza chat (Claude uslubi)
+  }
+}
+
+async function init(){
+  // Telegram Mini App ichida — initData bilan avtomatik kirish
+  const twa = window.Telegram && window.Telegram.WebApp;
+  if(twa && twa.initData){
+    try{
+      twa.ready(); twa.expand();
+      // scroll paytida oynani pastga tortib yopish = qaltirash; o'chiramiz
+      if(twa.disableVerticalSwipes) twa.disableVerticalSwipes();
+      if(twa.setBackgroundColor) twa.setBackgroundColor("#070b14");
+      if(twa.setHeaderColor) twa.setHeaderColor("#070b14");
+    }catch(e){}
+    try{ await postJSON("/api/kirish/webapp", {init_data: twa.initData}); }
+    catch(e){ /* imzo o'tmasa oddiy kirish ekrani ko'rsatiladi */ }
+  }
+  try{ KONFIG = await fetch("/api/konfig").then(r=>r.json()); }
+  catch(e){ toast("Server bilan aloqa yo'q"); return; }
+  if(!KONFIG.user){ kirishKorsat(); return; }
+  ilovaBoshla();
+}
+init();
+</script>
+</body>
+</html>

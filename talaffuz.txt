@@ -1,0 +1,25 @@
+# ============================================================
+# TALAFFUZ LUG'ATI — o'zingiz to'ldiring!
+# ============================================================
+# Ovoz qaysi so'zni noto'g'ri talaffuz qilsa, shu yerga yozing:
+#
+#     yozilishi = qanday aytilishi
+#
+# Chap tomonda so'zning YOZILISHI, o'ng tomonda TTS qanday
+# AYTISHI kerak bo'lgan shakl (eshitilishi bo'yicha yozing).
+# O'zgarish DARHOL kuchga kiradi — serverni qayta ishga
+# tushirish SHART EMAS. Katta-kichik harf farqi yo'q.
+#
+# Misollar (ishlatish uchun boshidagi # belgisini olib tashlang):
+# hozir = xozir
+# rahmat = raxmat
+# telefon = tilifon
+#
+# Bo'g'inlab aytish kerak bo'lsa, chiziqcha ishlating:
+# aeroport = a-eroport
+# ============================================================
+
+# "sh" harflari alohida s+h bo'lib o'qiladigan so'zlar (sh emas!):
+mashhur = mas-hur
+is'hoq = is-hoq
+mushaf = mus-haf

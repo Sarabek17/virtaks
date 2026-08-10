@@ -1,0 +1,10 @@
+# O'zbek ovozli assistent — test stendi
+google-genai>=2.12.0                       # Gemini Live API (client.aio.live.connect)
+azure-cognitiveservices-speech>=1.42.0     # Azure TTS (uz-UZ neyro-ovozlar)
+pyaudio>=0.2.14                            # Mikrofon — konsol rejimi (README ga qarang)
+python-dotenv>=1.0.0                       # .env konfiguratsiyasi
+numpy>=1.26.0                              # Telefon simulyatsiyasi (8 kHz + G.711) va VAD
+websockets>=13.0                           # Gemini Live transport (google-genai bilan keladi)
+fastapi>=0.110.0                           # Web rejimi (server.py)
+uvicorn[standard]>=0.29.0                  # Web server
+httpx>=0.27.0                              # Yandex SpeechKit TTS (muqobil ta'minotchi)

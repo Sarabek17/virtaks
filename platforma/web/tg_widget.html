@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="uz">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Telegram</title>
+<!--
+  Telegram Login Widget uchun ALOHIDA sahifa.
+
+  Nega alohida: telegram-widget.js ichida `eval` bor, asosiy ilovaning
+  CSP'sida esa `unsafe-eval` YO'Q va bo'lmasligi ham kerak (qarang
+  web.py dagi CSP izohi — "Lethal Trifecta"). Shu sahifaga `unsafe-eval`
+  beriladi, chunki bu yerda himoya qiladigan hech narsa yo'q: model
+  javobi ham, foydalanuvchi ma'lumoti ham, boshqa ilova kodi ham.
+  Asosiy ilova buni iframe orqali qo'yadi va natijani postMessage bilan oladi.
+-->
+<style>
+  /* Iframe kanvasi SHAFFOF bo'lishi kerak, aks holda tungi mavzuda tugma
+     ostida oq tasma chiqadi. Buning uchun `color-scheme` ni majburlamaymiz —
+     u ota-sahifa mavzusini kuzatsin — va fonni aniq `transparent` qilamiz. */
+  :root { color-scheme: light dark; }
+  html, body { margin: 0; padding: 0; background: transparent; }
+  body { display: flex; justify-content: center; align-items: center;
+         min-height: 40px; font: 13px/1.4 system-ui, sans-serif; }
+  #joy { line-height: 0; }          /* iframe ostida ortiqcha bo'shliq qolmasin */
+  #xato { color: #e06c5b; display: none; padding: 4px 8px; text-align: center; }
+</style>
+</head>
+<body>
+<div id="joy"></div>
+<div id="xato"></div>
+<script>
+  // Sahifa faqat o'z saytimiz ichida ochilishi kerak.
+  var ASOS = location.origin;
+  var REJIM = new URLSearchParams(location.search).get("rejim") === "bogla"
+    ? "bogla" : "kirish";
+  var MANZIL = REJIM === "bogla" ? "/api/telegram/bogla" : "/api/kirish/telegram";
+
+  function otkaz(holat, xabar) {
+    parent.postMessage(JSON.stringify(
+      { twin_tg: holat, rejim: REJIM, xabar: xabar || "" }), ASOS);
+  }
+
+  // Telegram widget shu global funksiyani chaqiradi (data-onauth).
+  window.twinTgAuth = function (u) {
+    fetch(MANZIL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(u),
+    }).then(function (r) {
+      return r.json().then(function (j) { return { ok: r.ok, j: j }; });
+    }).then(function (n) {
+      if (n.ok) {
+        otkaz("ok");
+      } else {
+        var x = (n.j && n.j.xato) || "Kirish bajarilmadi";
+        document.getElementById("xato").textContent = x;
+        document.getElementById("xato").style.display = "block";
+        otkaz("xato", x);
+      }
+    }).catch(function (e) {
+      otkaz("xato", String(e && e.message || e));
+    });
+  };
+
+  var s = document.createElement("script");
+  s.src = "https://telegram.org/js/telegram-widget.js?22";
+  s.setAttribute("data-telegram-login", "__BOT__");
+  s.setAttribute("data-size", "large");
+  s.setAttribute("data-radius", "10");   // ilovaning tugma radiusi (--r-o)
+  s.setAttribute("data-onauth", "twinTgAuth(user)");
+  s.setAttribute("data-request-access", "write");
+  s.onerror = function () { otkaz("xato", "Telegram skripti yuklanmadi"); };
+  document.getElementById("joy").appendChild(s);
+
+  // Tugma chizilgach AYNI o'lchamini ota-sahifaga aytamiz. Shunda iframe
+  // tugmadan kattaroq bo'lmaydi — aks holda uning to'rtburchagi mavzu foniga
+  // mos kelmay, tugma atrofida begona tasma bo'lib ko'rinadi.
+  var oxirgi = "";
+  setInterval(function () {
+    var f = document.querySelector("#joy iframe");
+    if (!f) return;
+    var r = f.getBoundingClientRect();
+    var w = Math.ceil(r.width), h = Math.ceil(r.height);
+    var kalit = w + "x" + h;
+    if (w && h && kalit !== oxirgi) {
+      oxirgi = kalit;
+      parent.postMessage(JSON.stringify(
+        { twin_tg: "olcham", kenglik: w, balandlik: h }), ASOS);
+    }
+  }, 400);
+</script>
+</body>
+</html>

@@ -1,0 +1,485 @@
+<!doctype html>
+<html lang="uz">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark">
+<title>Kabinet — mening raqamli egizagim</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🧠</text></svg>">
+<style>
+:root{--fon:#070b14;--fon2:#0c1220;--chiz:rgba(255,255,255,.09);--chiz2:rgba(255,255,255,.16);
+      --matn:#e6ebf5;--xira:#8a94a8;--xira2:#5c667a;--urgu:#5b8cff;--yashil:#3ddc84;
+      --qizil:#ff6b6b;--sariq:#f0b90b;--grad:linear-gradient(135deg,#5b8cff,#8b5bff)}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--fon);color:var(--matn);font:14px/1.6 "Segoe UI",system-ui,sans-serif;min-height:100vh}
+a{color:var(--urgu)}
+.ust{display:flex;align-items:center;gap:14px;padding:14px 22px;border-bottom:1px solid var(--chiz);
+     background:var(--fon2);position:sticky;top:0;z-index:10;flex-wrap:wrap}
+.ust b{font-size:15px;letter-spacing:.04em}
+.ust .o{margin-left:auto;display:flex;gap:10px;align-items:center;font-size:12.5px;color:var(--xira)}
+.tablar{display:flex;gap:4px;padding:10px 22px 0;border-bottom:1px solid var(--chiz);
+        overflow-x:auto;background:var(--fon2)}
+.tab{border:0;background:none;color:var(--xira);font:600 13px/1 inherit;padding:10px 14px;
+     cursor:pointer;border-radius:8px 8px 0 0;white-space:nowrap;position:relative}
+.tab.faol{color:var(--matn);background:var(--fon)}
+.tab.faol::after{content:"";position:absolute;left:10px;right:10px;bottom:-1px;height:2px;
+                 background:var(--grad);border-radius:2px}
+main{padding:20px 22px 60px;max-width:1180px}
+.panel{display:none}.panel.faol{display:block}
+.kartalar{display:grid;grid-template-columns:repeat(auto-fill,minmax(165px,1fr));gap:12px;margin-bottom:22px}
+.st{background:var(--fon2);border:1px solid var(--chiz);border-radius:12px;padding:14px 16px}
+.st .q{font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--xira2)}
+.st .v{font-size:23px;font-weight:800;margin-top:4px}
+table{width:100%;border-collapse:collapse;font-size:13px;background:var(--fon2);
+      border:1px solid var(--chiz);border-radius:12px;overflow:hidden}
+th,td{padding:9px 12px;text-align:left;border-bottom:1px solid var(--chiz);vertical-align:top}
+th{background:rgba(255,255,255,.04);font-size:11.5px;text-transform:uppercase;
+   letter-spacing:.06em;color:var(--xira)}
+tr:last-child td{border-bottom:0}
+tr:hover td{background:rgba(91,140,255,.05)}
+button,.tug{border:1px solid var(--chiz2);background:rgba(255,255,255,.05);color:var(--matn);
+        border-radius:9px;padding:7px 13px;font:600 12.5px/1 inherit;cursor:pointer;
+        transition:border-color .2s,background .2s;display:inline-block;text-decoration:none}
+button:hover,.tug:hover{border-color:var(--urgu);background:rgba(91,140,255,.12)}
+button.asos{background:var(--grad);border:0}
+button.xavf{border-color:rgba(255,107,107,.4);color:var(--qizil)}
+button:disabled{opacity:.45;cursor:not-allowed}
+input,textarea,select{width:100%;padding:9px 12px;border-radius:9px;border:1px solid var(--chiz2);
+       background:rgba(255,255,255,.04);color:var(--matn);font:13px/1.5 inherit;outline:none}
+input:focus,textarea:focus,select:focus{border-color:var(--urgu)}
+textarea{min-height:160px;resize:vertical}
+label{display:block;font-size:11.5px;color:var(--xira);margin:12px 0 4px;
+      text-transform:uppercase;letter-spacing:.05em}
+.qator{display:flex;gap:10px;align-items:center;margin-bottom:14px;flex-wrap:wrap}
+.izoh{font-size:11.5px;color:var(--xira2);margin-top:4px}
+.belgi{display:inline-block;padding:2px 8px;border-radius:20px;font-size:10.5px;font-weight:700;
+       border:1px solid var(--chiz2)}
+.b-yashil{color:var(--yashil);border-color:rgba(61,220,132,.4)}
+.b-sariq{color:var(--sariq);border-color:rgba(240,185,11,.4)}
+.b-qizil{color:var(--qizil);border-color:rgba(255,107,107,.4)}
+.b-xira{color:var(--xira2)}
+.tashla{border:2px dashed var(--chiz2);border-radius:16px;padding:26px;text-align:center;
+        background:var(--fon2);transition:border-color .2s,background .2s;cursor:pointer}
+.tashla.ustida{border-color:var(--urgu);background:rgba(91,140,255,.08)}
+.tashla .katta{font-size:34px}
+.progress{height:6px;border-radius:4px;background:rgba(255,255,255,.08);overflow:hidden;margin-top:10px}
+.progress i{display:block;height:100%;background:var(--grad);width:0;transition:width .2s}
+.jurnal{background:#05080f;border:1px solid var(--chiz);border-radius:10px;padding:12px 14px;
+        font:12px/1.6 Consolas,monospace;max-height:320px;overflow-y:auto;white-space:pre-wrap;
+        color:#9fb3d0;margin-top:12px}
+.modal{position:fixed;inset:0;background:rgba(4,7,14,.8);display:none;place-items:center;z-index:50;padding:20px}
+.modal.kor{display:grid}
+.modal-k{background:var(--fon2);border:1px solid var(--chiz2);border-radius:16px;padding:22px;
+         width:min(760px,96vw);max-height:92vh;overflow-y:auto}
+#toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(16px);
+       background:#1a2234;border:1px solid var(--chiz2);padding:11px 20px;border-radius:11px;
+       font-size:13px;opacity:0;pointer-events:none;transition:.28s;z-index:60}
+#toast.kor{opacity:1;transform:translateX(-50%)}
+.kirish-ekran{display:grid;place-items:center;min-height:100vh;padding:20px}
+.kirish-k{width:min(380px,94vw);background:var(--fon2);border:1px solid var(--chiz2);
+          border-radius:18px;padding:30px 26px;text-align:center}
+@media(max-width:760px){
+  main{padding:16px 14px 50px}
+  .ust,.tablar{padding-left:14px;padding-right:14px}
+  /* tab qatori telefonda sig'maydi — yon tomonga suriladi (chiziqchasiz) */
+  .tablar{overflow-x:auto;white-space:nowrap;scrollbar-width:none}
+  .tablar::-webkit-scrollbar{display:none}
+  .kartalar{grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px}
+  .st .v{font-size:19px}
+  table{font-size:12px}
+  th,td{padding:7px 8px}
+  .qator{flex-wrap:wrap}
+  input,select,textarea{max-width:100%!important}
+  /* iOS: 16px dan kichik inputga fokus = avtomatik zoom */
+  input,select,textarea{font-size:16px}
+  .modal-k{padding:18px 15px}
+}
+</style>
+</head>
+<body>
+<div id="ilova" style="display:none">
+  <div class="ust">
+    <b>🧠 KABINET</b>
+    <select id="twin-tanlov" style="max-width:230px" onchange="twinAlmash()"></select>
+    <div class="o">
+      <span id="kim"></span>
+      <a class="tug" href="/">← Ilova</a>
+      <button onclick="chiqish()">Chiqish</button>
+    </div>
+  </div>
+  <div class="tablar">
+    <button class="tab faol" data-p="bilim">📚 Bilim bazasi</button>
+    <button class="tab" data-p="xulq">🎭 Xarakter</button>
+    <button class="tab" data-p="skill">🧩 Imkoniyatlar</button>
+    <button class="tab" data-p="shablon">📐 Shablonlar</button>
+  </div>
+  <main>
+    <div class="panel faol" id="p-bilim">
+      <div class="kartalar" id="stat"></div>
+      <div class="tashla" id="tashla">
+        <div class="katta">📤</div>
+        <div style="font-weight:700;margin-top:6px">Faylni shu yerga tashlang yoki tanlang</div>
+        <div class="izoh">Audio/video (MP3, M4A, MP4...), PDF, PowerPoint, Word, Excel, TXT —
+          bitta faylda 512 MB gacha. Yuklangach tizim o'zi matnga aylantiradi va indekslaydi.</div>
+        <input type="file" id="fayl" multiple style="display:none">
+        <div class="progress" id="progress" style="display:none"><i></i></div>
+      </div>
+      <div class="qator" style="margin-top:16px">
+        <input id="url" placeholder="https://sahifa-manzili..." style="max-width:420px">
+        <button onclick="urlQosh()">🌐 Veb-sahifani qo'shish</button>
+        <button onclick="manbalarYukla()" style="margin-left:auto">↻ Yangilash</button>
+      </div>
+      <div id="manba-jadval"></div>
+    </div>
+
+    <div class="panel" id="p-xulq">
+      <div style="max-width:760px">
+        <div class="izoh" style="font-size:12.5px;margin-bottom:6px">
+          Bu yerda egizagingiz QANDAY gapirishini belgilaysiz. Bilim manbalardan olinadi —
+          bu blok faqat ohang, yondashuv va chegaralarni beradi.</div>
+        <label>Egizak haqida (foydalanuvchi ko'radi)</label>
+        <input id="x-tavsif" placeholder="Masalan: 20 yillik amaliyotga ega biznes murabbiyi">
+        <label>Xarakter va uslub (ichki ko'rsatma)</label>
+        <textarea id="x-xulq" placeholder="Masalan:
+- Sen amaliyotchi murabbiysan, nazariya emas amaliy qadam berasan.
+- Sodda gapirasan, misollarni real biznesdan keltirasan.
+- Foydalanuvchi noaniq so'rasa — aniqlashtiruvchi savol berasan.
+- Hech qachon manbada yo'q raqamni o'ylab topmaysan."></textarea>
+        <div class="qator" style="margin-top:14px">
+          <button class="asos" onclick="xulqSaqla()">Saqlash</button>
+          <button onclick="xulqSina()">▶ Sinab ko'rish</button>
+          <span class="izoh" id="xulq-holat"></span>
+        </div>
+        <div class="izoh" style="margin-top:6px">«Sinab ko'rish» xulqni SAQLAMASDAN
+          namuna javob chiqaradi — ohang qanday eshitilishini ko'rasiz.</div>
+        <div class="qator" style="margin-top:10px">
+          <input id="x-savol" placeholder="Sinov savoli (ixtiyoriy)" style="max-width:420px">
+        </div>
+        <div id="x-namuna"></div>
+      </div>
+    </div>
+
+    <div class="panel" id="p-skill">
+      <div class="izoh" style="max-width:760px;margin-bottom:14px">
+        Egizagingiz javob berayotganda qaysi qo'shimcha imkoniyatlardan
+        foydalanishini shu yerda yoqasiz. O'chirilgan imkoniyat umuman
+        chaqirilmaydi — ya'ni uning uchun pul ham sarflanmaydi.</div>
+      <div id="skill-royxat"></div>
+    </div>
+
+    <div class="panel" id="p-shablon">
+      <div class="izoh" style="max-width:760px;margin-bottom:14px">
+        Shablon — bo'sh Excel fayl (reja, jadval, matritsa). Foydalanuvchi
+        «tuzib ber» desa, egizak shu shablonning NUSXASINI uning vaziyatiga
+        moslab to'ldiradi. Asl fayl o'zgarmaydi.</div>
+      <div class="qator">
+        <input type="file" id="sh-fayl" accept=".xlsx,.xlsm" style="max-width:300px">
+        <input id="sh-izoh" placeholder="Qisqa izoh (qachon ishlatiladi)" style="max-width:320px">
+        <button class="asos" onclick="shablonYukla()">Yuklash</button>
+        <button onclick="shablonlarYukla()" style="margin-left:auto">↻ Yangilash</button>
+      </div>
+      <div id="shablon-jadval" style="margin-top:14px"></div>
+    </div>
+  </main>
+</div>
+
+<div id="kirish" class="kirish-ekran" style="display:none">
+  <div class="kirish-k">
+    <h3 style="margin-bottom:6px">🧠 Kabinet</h3>
+    <div class="izoh" style="margin-bottom:18px">Twin egasi login va paroli bilan kiring</div>
+    <input id="k-login" placeholder="login" style="margin-bottom:8px">
+    <input id="k-parol" type="password" placeholder="parol">
+    <button class="asos" style="width:100%;margin-top:12px;padding:11px" onclick="kir()">Kirish</button>
+    <div class="izoh" id="kirish-xato" style="color:var(--qizil);margin-top:10px"></div>
+  </div>
+</div>
+
+<div class="modal" id="modal"><div class="modal-k" id="modal-tana"></div></div>
+<div id="toast"></div>
+
+<script>
+"use strict";
+const $ = s => document.querySelector(s);
+const esc = s => (s??"").toString().replace(/&/g,"&amp;").replace(/</g,"&lt;")
+                  .replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+let TWINLAR = [], TWIN = null, TAYMER = null;
+
+function toast(x){ const t=$("#toast"); t.textContent=x; t.classList.add("kor");
+  clearTimeout(t._t); t._t=setTimeout(()=>t.classList.remove("kor"),3200); }
+
+async function api(yol, opts){
+  const r = await fetch(yol, opts);
+  if(r.status===401 || r.status===403){ kirishKorsat(); throw new Error("ruxsat yo'q"); }
+  const j = await r.json().catch(()=>({}));
+  if(!r.ok) throw new Error(j.xato||j.xabar||("HTTP "+r.status));
+  return j;
+}
+const post = (y,t) => api(y,{method:"POST",headers:{"Content-Type":"application/json"},
+                            body:JSON.stringify(t)});
+const put  = (y,t) => api(y,{method:"PUT",headers:{"Content-Type":"application/json"},
+                            body:JSON.stringify(t)});
+const ochirish = y => api(y,{method:"DELETE"});
+const vaqtF = v => v ? String(v).replace("T"," ").slice(0,16) : "";
+const olcham = b => !b ? "" : b>1e6 ? (b/1e6).toFixed(1)+" MB" : Math.round(b/1e3)+" KB";
+const davF = s => !s ? "" : `${Math.floor(s/3600)}:${String(Math.floor(s%3600/60)).padStart(2,"0")}:${String(s%60).padStart(2,"0")}`;
+
+function kirishKorsat(){ $("#ilova").style.display="none"; $("#kirish").style.display="grid"; }
+window.kir = async ()=>{
+  try{ await post("/api/kirish/parol", {login:$("#k-login").value.trim(), parol:$("#k-parol").value});
+       location.reload(); }
+  catch(e){ $("#kirish-xato").textContent = e.message; }
+};
+window.chiqish = async ()=>{ await fetch("/api/chiqish",{method:"POST"}); location.reload(); };
+
+document.querySelectorAll(".tab").forEach(b=>b.addEventListener("click",()=>{
+  document.querySelectorAll(".tab").forEach(x=>x.classList.toggle("faol",x===b));
+  document.querySelectorAll(".panel").forEach(p=>p.classList.toggle("faol", p.id==="p-"+b.dataset.p));
+  if(b.dataset.p==="skill") skilllarYukla();
+  if(b.dataset.p==="shablon") shablonlarYukla();
+}));
+
+/* ---------- twinlar ---------- */
+async function twinlarYukla(){
+  const j = await api("/api/kabinet/twinlar");
+  TWINLAR = j.twinlar || [];
+  $("#kim").textContent = j.rol === "admin" ? "admin" : "twin egasi";
+  if(!TWINLAR.length){
+    $("#ilova").innerHTML = `<div class="kirish-ekran"><div class="kirish-k">
+      <h3>Sizga biriktirilgan egizak yo'q</h3>
+      <div class="izoh" style="margin-top:8px">Administrator sizni egizakka egasi qilib
+      biriktirgach shu sahifa ishlaydi.</div>
+      <a class="tug" style="margin-top:14px" href="/">← Ilovaga qaytish</a></div></div>`;
+    return;
+  }
+  $("#twin-tanlov").innerHTML = TWINLAR.map(t=>
+    `<option value="${t.id}">${esc(t.nom)}${t.faol?"":" (o'chiq)"}</option>`).join("");
+  TWIN = TWINLAR[0].id;
+  await twinYukla();
+}
+window.twinAlmash = async ()=>{ TWIN = +$("#twin-tanlov").value; await twinYukla(); };
+
+async function twinYukla(){
+  const t = await api("/api/kabinet/twin/"+TWIN);
+  $("#x-tavsif").value = t.tavsif || "";
+  $("#x-xulq").value = t.xulq || "";
+  const el=(q,v)=>`<div class="st"><div class="q">${q}</div><div class="v">${v}</div></div>`;
+  $("#stat").innerHTML = el("Manbalar", t.manba_soni) + el("Bilim bo'laklari", t.bolak_soni) +
+    el("Bilim ruxsati", (t.ruxsat||[]).length + " twin");
+  await manbalarYukla();
+}
+
+/* ---------- xarakter ---------- */
+window.xulqSaqla = async ()=>{
+  try{
+    await post(`/api/kabinet/twin/${TWIN}/xulq`,
+               {tavsif:$("#x-tavsif").value.trim(), xulq:$("#x-xulq").value.trim()});
+    $("#xulq-holat").textContent = "saqlandi ✓";
+    setTimeout(()=>$("#xulq-holat").textContent="", 3000);
+    toast("Xarakter saqlandi — keyingi javoblardan boshlab qo'llanadi");
+  }catch(e){ toast("Xato: "+e.message); }
+};
+
+/* xulqni SAQLAMASDAN sinash — namuna javob */
+window.xulqSina = async ()=>{
+  const joy = $("#x-namuna");
+  joy.innerHTML = `<div class="izoh" style="margin-top:14px">Namuna tayyorlanmoqda…</div>`;
+  try{
+    const j = await post(`/api/kabinet/twin/${TWIN}/xulq/preview`,
+                         {xulq: $("#x-xulq").value.trim(),
+                          savol: $("#x-savol").value.trim()});
+    joy.innerHTML = `<div style="margin-top:16px;border:1px solid var(--chiz2);
+        border-radius:12px;padding:14px 16px;background:rgba(255,255,255,.03)">
+      <div class="izoh" style="margin-bottom:8px">Namuna savol: <b>${esc(j.savol)}</b>
+        · ${j.manba_soni} ta manba bo'lagi ishlatildi</div>
+      <div style="font-size:13.5px;line-height:1.75;white-space:pre-wrap">${esc(j.namuna)}</div>
+      <div class="izoh" style="margin-top:10px">Bu javob saqlanmadi — faqat ohangni ko'rsatadi.</div>
+    </div>`;
+  }catch(e){
+    joy.innerHTML = `<div class="izoh" style="margin-top:14px;color:var(--qizil)">
+      ${esc(e.message)}</div>`;
+  }
+};
+
+/* ---------- imkoniyatlar (skilllar) ---------- */
+window.skilllarYukla = async ()=>{
+  const j = await api(`/api/kabinet/twin/${TWIN}/skilllar`);
+  $("#skill-royxat").innerHTML = (j.skilllar||[]).map(s=>`
+    <div style="border:1px solid var(--chiz2);border-radius:12px;padding:14px 16px;
+                margin-bottom:10px;max-width:760px;display:flex;gap:14px;align-items:flex-start">
+      <div style="flex:1">
+        <div style="font-weight:600;font-size:13.5px">${esc(s.nom)}
+          <span class="belgi ${s.tur==="amal"?"b-sariq":"b-xira"}"
+            style="margin-left:6px">${s.tur==="amal"?"amal":"javob ichida"}</span></div>
+        <div class="izoh" style="margin-top:4px;line-height:1.6">${esc(s.tavsif)}</div>
+      </div>
+      <button class="${s.faol?"asos":""}" onclick="skillAlmash('${esc(s.kod)}',${!s.faol})"
+        style="flex:none;min-width:96px">${s.faol?"Yoqilgan":"O'chiq"}</button>
+    </div>`).join("");
+};
+
+window.skillAlmash = async (kod, faol)=>{
+  try{
+    await post(`/api/kabinet/twin/${TWIN}/skill`, {kod, faol});
+    toast(faol ? "Yoqildi ✓" : "O'chirildi");
+    skilllarYukla();
+  }catch(e){ toast("Xato: "+e.message); }
+};
+
+/* ---------- shablonlar ombori ---------- */
+window.shablonlarYukla = async ()=>{
+  const r = await api(`/api/kabinet/twin/${TWIN}/shablonlar`);
+  $("#shablon-jadval").innerHTML = `<table><tr><th>Nom</th><th>Egasi</th>
+      <th>Izoh</th><th>Holat</th><th></th></tr>` +
+    r.map(s=>`<tr>
+      <td><b>${esc(s.nom)}</b></td>
+      <td>${s.twin_id ? "shu egizak" : '<span class="izoh">umumiy</span>'}</td>
+      <td style="max-width:280px"><div class="izoh">${esc(s.izoh||"")}</div></td>
+      <td><span class="belgi ${s.faol?"b-yashil":"b-xira"}">${s.faol?"faol":"o'chiq"}</span></td>
+      <td style="white-space:nowrap">
+        <button onclick="shablonAlmash(${s.id},${!s.faol})">${s.faol?"o'chirish":"yoqish"}</button>
+        ${s.twin_id ? `<button class="xavf" onclick="shablonOchir(${s.id})">🗑</button>` : ""}
+      </td></tr>`).join("") + `</table>` +
+    (r.length ? "" : '<div class="izoh">Hali shablon yo\'q.</div>');
+};
+
+window.shablonYukla = async ()=>{
+  const f = $("#sh-fayl").files[0];
+  if(!f){ toast("Avval .xlsx faylni tanlang"); return; }
+  const fd = new FormData();
+  fd.append("twin_id", TWIN); fd.append("izoh", $("#sh-izoh").value.trim());
+  fd.append("fayl", f);
+  try{
+    const r = await fetch("/api/kabinet/shablon", {method:"POST", body:fd});
+    const j = await r.json().catch(()=>({}));
+    if(!r.ok) throw new Error(j.xato||("HTTP "+r.status));
+    toast("Shablon yuklandi ✓");
+    $("#sh-fayl").value = ""; $("#sh-izoh").value = "";
+    shablonlarYukla();
+  }catch(e){ toast("Xato: "+e.message); }
+};
+
+window.shablonAlmash = async (id, faol)=>{
+  await put("/api/kabinet/shablon/"+id, {faol}); shablonlarYukla(); };
+window.shablonOchir = async (id)=>{
+  if(!confirm("Shablon o'chirilsinmi?")) return;
+  await ochirish("/api/kabinet/shablon/"+id); toast("O'chirildi"); shablonlarYukla(); };
+
+/* ---------- manbalar ---------- */
+const HOLAT_BELGI = {tayyor:"b-yashil", ishlanmoqda:"b-sariq", navbatda:"b-xira", xato:"b-qizil"};
+const TUR_IKON = {audio:"🎧", slayd:"📊", jadval:"📈", hujjat:"📄", web:"🌐"};
+
+async function manbalarYukla(){
+  const royxat = await api("/api/kabinet/manbalar?twin_id="+TWIN);
+  if(!royxat.length){
+    $("#manba-jadval").innerHTML = `<div class="izoh" style="padding:18px 4px">
+      Hali manba yuklanmagan. Birinchi faylni yuklang — tizim uni matnga aylantirib,
+      mavzularga bo'lib, qidiruvga tayyorlaydi.</div>`;
+    return;
+  }
+  $("#manba-jadval").innerHTML = `<table><thead><tr>
+      <th>Manba</th><th>Tur</th><th>Holat</th><th>Bo'laklar</th><th>Hajm</th>
+      <th>Yuklangan</th><th></th></tr></thead><tbody>` +
+    royxat.map(m=>`<tr>
+      <td><b>${esc(m.nom)}</b>${m.papka?`<div class="izoh">${esc(m.papka)}</div>`:""}
+          ${m.xato?`<div class="izoh" style="color:var(--qizil)">${esc(m.xato.slice(0,140))}</div>`:""}</td>
+      <td>${TUR_IKON[m.tur]||"📄"} ${esc(m.tur)}${m.davomiylik?`<div class="izoh">${davF(m.davomiylik)}</div>`:""}</td>
+      <td><span class="belgi ${HOLAT_BELGI[m.holat]||"b-xira"}">${esc(m.holat)}</span></td>
+      <td>${m.bolak_soni||0}${m.sahifa_soni?`<div class="izoh">${m.sahifa_soni} sahifa</div>`:""}</td>
+      <td>${olcham(m.hajm)}</td>
+      <td>${vaqtF(m.yaratilgan)}</td>
+      <td style="white-space:nowrap">
+        <button onclick="jurnal(${m.id})">Jurnal</button>
+        ${m.holat!=="ishlanmoqda"?`<button onclick="qayta(${m.id})">↻</button>`:""}
+        <button class="xavf" onclick="ochir(${m.id},'${esc(m.nom).replace(/'/g,"")}')">✕</button>
+      </td></tr>`).join("") + "</tbody></table>";
+
+  const ishlayapti = royxat.some(m=>["navbatda","ishlanmoqda"].includes(m.holat));
+  clearTimeout(TAYMER);
+  if(ishlayapti) TAYMER = setTimeout(manbalarYukla, 4000);
+}
+
+window.qayta = async id => { try{ await post(`/api/kabinet/manba/${id}/qayta`,{});
+  toast("Qayta ishlashga qo'yildi"); manbalarYukla(); }catch(e){ toast("Xato: "+e.message); } };
+
+window.ochir = async (id, nom) => {
+  if(!confirm(`"${nom}" o'chirilsinmi? Bu manbadan olingan barcha bilim bo'laklari ham o'chadi.`)) return;
+  try{ await api("/api/kabinet/manba/"+id,{method:"DELETE"}); toast("O'chirildi"); twinYukla(); }
+  catch(e){ toast("Xato: "+e.message); }
+};
+
+window.jurnal = async id => {
+  const j = await api("/api/kabinet/manba/"+id);
+  $("#modal-tana").innerHTML = `<h3>${esc(j.manba.nom)}</h3>
+    <div class="izoh">Holat: ${esc(j.manba.holat)} · ${j.manba.bolak_soni||0} bo'lak
+      ${j.job?` · job #${j.job.id} (${esc(j.job.holat)})`:""}</div>
+    ${j.manba.xato?`<div class="izoh" style="color:var(--qizil)">${esc(j.manba.xato)}</div>`:""}
+    <div class="jurnal">${esc((j.loglar||[]).join("\n")) || "(jurnal bo'sh)"}</div>
+    <div class="qator" style="margin-top:14px"><button onclick="modalYop()">Yopish</button></div>`;
+  $("#modal").classList.add("kor");
+};
+window.modalYop = ()=> $("#modal").classList.remove("kor");
+$("#modal").addEventListener("click", e=>{ if(e.target.id==="modal") modalYop(); });
+
+/* ---------- yuklash ---------- */
+const tashla = $("#tashla");
+tashla.addEventListener("click", ()=> $("#fayl").click());
+$("#fayl").addEventListener("change", e => fayllarYukla([...e.target.files]));
+["dragenter","dragover"].forEach(t=>tashla.addEventListener(t, e=>{
+  e.preventDefault(); tashla.classList.add("ustida"); }));
+["dragleave","drop"].forEach(t=>tashla.addEventListener(t, e=>{
+  e.preventDefault(); tashla.classList.remove("ustida"); }));
+tashla.addEventListener("drop", e => fayllarYukla([...e.dataTransfer.files]));
+
+function bittaYukla(f){
+  return new Promise((bajar, xato)=>{
+    const fd = new FormData();
+    fd.append("twin_id", TWIN); fd.append("fayl", f);
+    const x = new XMLHttpRequest();
+    x.open("POST", "/api/kabinet/yukla");
+    x.upload.onprogress = e => {
+      if(e.lengthComputable) $("#progress i").style.width = (e.loaded/e.total*100).toFixed(0)+"%";
+    };
+    x.onload = ()=>{
+      let j={}; try{ j=JSON.parse(x.responseText); }catch(_){}
+      x.status>=200 && x.status<300 ? bajar(j) : xato(new Error(j.xato||("HTTP "+x.status)));
+    };
+    x.onerror = ()=> xato(new Error("tarmoq xatosi"));
+    x.send(fd);
+  });
+}
+
+async function fayllarYukla(fayllar){
+  if(!fayllar.length) return;
+  $("#progress").style.display = "block";
+  for(const f of fayllar){
+    $("#progress i").style.width = "0%";
+    try{
+      await bittaYukla(f);
+      toast(`${f.name} yuklandi — indekslash navbatga qo'yildi`);
+    }catch(e){ toast(`${f.name}: ${e.message}`); }
+  }
+  $("#progress").style.display = "none";
+  $("#fayl").value = "";
+  manbalarYukla();
+}
+
+window.urlQosh = async ()=>{
+  const u = $("#url").value.trim();
+  if(!u) return;
+  try{ await post("/api/kabinet/url", {twin_id:TWIN, url:u}); $("#url").value="";
+       toast("Sahifa navbatga qo'yildi"); manbalarYukla(); }
+  catch(e){ toast("Xato: "+e.message); }
+};
+
+/* ---------- start ---------- */
+(async ()=>{
+  try{
+    const k = await fetch("/api/konfig").then(r=>r.json());
+    if(!k.user || !["egasi","admin"].includes(k.user.rol)) return kirishKorsat();
+    $("#ilova").style.display = "block";
+    await twinlarYukla();
+  }catch(e){ kirishKorsat(); }
+})();
+</script>
+</body>
+</html>

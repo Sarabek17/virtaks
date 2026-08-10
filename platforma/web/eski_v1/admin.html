@@ -1,0 +1,670 @@
+<!doctype html>
+<html lang="uz">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark">
+<title>Admin — Digital Twin platforma</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⚙️</text></svg>">
+<style>
+:root{--fon:#070b14;--fon2:#0c1220;--chiz:rgba(255,255,255,.09);--chiz2:rgba(255,255,255,.16);
+      --matn:#e6ebf5;--xira:#8a94a8;--xira2:#5c667a;--urgu:#5b8cff;--yashil:#3ddc84;
+      --qizil:#ff6b6b;--sariq:#f0b90b;--grad:linear-gradient(135deg,#5b8cff,#8b5bff)}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--fon);color:var(--matn);font:14px/1.6 "Segoe UI",system-ui,sans-serif;
+     min-height:100vh}
+a{color:var(--urgu)}
+.ust{display:flex;align-items:center;gap:14px;padding:14px 22px;border-bottom:1px solid var(--chiz);
+     background:var(--fon2);position:sticky;top:0;z-index:10}
+.ust b{font-size:15px;letter-spacing:.04em}
+.ust .o{margin-left:auto;display:flex;gap:10px;align-items:center;font-size:12.5px;color:var(--xira)}
+.tablar{display:flex;gap:4px;padding:10px 22px 0;border-bottom:1px solid var(--chiz);
+        overflow-x:auto;background:var(--fon2)}
+.tab{border:0;background:none;color:var(--xira);font:600 13px/1 inherit;padding:10px 14px;
+     cursor:pointer;border-radius:8px 8px 0 0;white-space:nowrap;position:relative}
+.tab.faol{color:var(--matn);background:var(--fon)}
+.tab.faol::after{content:"";position:absolute;left:10px;right:10px;bottom:-1px;height:2px;
+                 background:var(--grad);border-radius:2px}
+main{padding:20px 22px 60px;max-width:1300px}
+.panel{display:none}.panel.faol{display:block}
+.kartalar{display:grid;grid-template-columns:repeat(auto-fill,minmax(165px,1fr));gap:12px;margin-bottom:22px}
+.st{background:var(--fon2);border:1px solid var(--chiz);border-radius:12px;padding:14px 16px}
+.st .q{font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--xira2)}
+.st .v{font-size:23px;font-weight:800;margin-top:4px}
+table{width:100%;border-collapse:collapse;font-size:13px;background:var(--fon2);
+      border:1px solid var(--chiz);border-radius:12px;overflow:hidden}
+th,td{padding:9px 12px;text-align:left;border-bottom:1px solid var(--chiz);vertical-align:top}
+th{background:rgba(255,255,255,.04);font-size:11.5px;text-transform:uppercase;
+   letter-spacing:.06em;color:var(--xira)}
+tr:last-child td{border-bottom:0}
+tr:hover td{background:rgba(91,140,255,.05)}
+/* jadval sahifani gorizontal cho'zmasin — o'z ichida suriladi */
+#twin-jadval,#dir-jadval,#user-jadval,#job-jadval,#plan-jadval,#obuna-jadval,
+#tolov-jadval,#narx-jadval,#xarajat-jadval,#jobs-qisqa,.modal-k{overflow-x:auto}
+@media(max-width:760px){
+  main{padding:16px 12px 60px}
+  .ust,.tablar{padding-left:12px;padding-right:12px}
+  .tablar{overflow-x:auto;white-space:nowrap;scrollbar-width:none}
+  .tablar::-webkit-scrollbar{display:none}
+  .kartalar{grid-template-columns:repeat(auto-fill,minmax(132px,1fr));gap:9px}
+  .st .v{font-size:19px}
+  table{font-size:12px}
+  th,td{padding:7px 9px}
+  .qator{flex-wrap:wrap}
+  input,select{max-width:100%!important}
+}
+button,.tug{border:1px solid var(--chiz2);background:rgba(255,255,255,.05);color:var(--matn);
+        border-radius:9px;padding:7px 13px;font:600 12.5px/1 inherit;cursor:pointer;
+        transition:border-color .2s,background .2s;display:inline-block;text-decoration:none}
+button:hover,.tug:hover{border-color:var(--urgu);background:rgba(91,140,255,.12)}
+button.asos{background:var(--grad);border:0}
+button.xavf{border-color:rgba(255,107,107,.4);color:var(--qizil)}
+input,textarea,select{width:100%;padding:9px 12px;border-radius:9px;border:1px solid var(--chiz2);
+       background:rgba(255,255,255,.04);color:var(--matn);font:13px/1.5 inherit;outline:none}
+input:focus,textarea:focus,select:focus{border-color:var(--urgu)}
+textarea{min-height:130px;resize:vertical;font-family:Consolas,monospace;font-size:12.5px}
+label{display:block;font-size:11.5px;color:var(--xira);margin:10px 0 4px;
+      text-transform:uppercase;letter-spacing:.05em}
+.qator{display:flex;gap:10px;align-items:center;margin-bottom:14px;flex-wrap:wrap}
+.modal{position:fixed;inset:0;background:rgba(4,7,14,.8);display:none;place-items:center;
+       z-index:50;padding:20px}
+.modal.kor{display:grid}
+.modal-k{background:var(--fon2);border:1px solid var(--chiz2);border-radius:16px;
+         padding:22px;width:min(720px,96vw);max-height:92vh;overflow-y:auto}
+.modal-k h3{font-size:16px;margin-bottom:6px}
+.belgi{display:inline-block;padding:2px 8px;border-radius:20px;font-size:10.5px;font-weight:700;
+       border:1px solid var(--chiz2)}
+.b-yashil{color:var(--yashil);border-color:rgba(61,220,132,.4)}
+.b-sariq{color:var(--sariq);border-color:rgba(240,185,11,.4)}
+.b-qizil{color:var(--qizil);border-color:rgba(255,107,107,.4)}
+.b-xira{color:var(--xira2)}
+#toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(16px);
+       background:#1a2234;border:1px solid var(--chiz2);padding:11px 20px;border-radius:11px;
+       font-size:13px;opacity:0;pointer-events:none;transition:.28s;z-index:60}
+#toast.kor{opacity:1;transform:translateX(-50%)}
+.izoh{font-size:11.5px;color:var(--xira2);margin-top:4px}
+.kirish-ekran{display:grid;place-items:center;min-height:100vh;padding:20px}
+.kirish-k{width:min(380px,94vw);background:var(--fon2);border:1px solid var(--chiz2);
+          border-radius:18px;padding:30px 26px;text-align:center}
+</style>
+</head>
+<body>
+<div id="ilova" style="display:none">
+  <div class="ust">
+    <b>⚙ ADMIN PANEL</b>
+    <span style="font-size:12px;color:var(--xira2)">Digital Twin platforma</span>
+    <div class="o">
+      <span id="kim"></span>
+      <a class="tug" href="/">← Ilova</a>
+      <button onclick="chiqish()">Chiqish</button>
+    </div>
+  </div>
+  <div class="tablar">
+    <button class="tab faol" data-p="xulosa">📊 Xulosa</button>
+    <button class="tab" data-p="twinlar">👨‍🏫 Twinlar</button>
+    <button class="tab" data-p="direktorlar">🏛 Direktorlar</button>
+    <button class="tab" data-p="userlar">👥 Userlar</button>
+    <button class="tab" data-p="moliya">💰 Moliya</button>
+    <button class="tab" data-p="jobs">⚙ Jobs</button>
+  </div>
+  <main>
+    <div class="panel faol" id="p-xulosa"><div class="kartalar" id="stat"></div>
+      <div id="jobs-qisqa"></div></div>
+    <div class="panel" id="p-twinlar">
+      <div class="qator"><button class="asos" onclick="twinModal()">+ Yangi twin</button>
+        <button onclick="yukla()">↻ Yangilash</button></div>
+      <div id="twin-jadval"></div></div>
+    <div class="panel" id="p-direktorlar">
+      <div class="qator"><button class="asos" onclick="dirModal()">+ Yangi direktor</button>
+        <span class="izoh">Persona = direktor qanday fikrlashi (prompt). Teglar = qaysi bilim bo'laklarini o'qiydi.</span></div>
+      <div id="dir-jadval"></div></div>
+    <div class="panel" id="p-userlar">
+      <div class="qator"><input id="u-qidiruv" placeholder="Ism / username / telefon..." style="max-width:280px">
+        <button onclick="userlarYukla()">Qidirish</button></div>
+      <div id="user-jadval"></div></div>
+    <div class="panel" id="p-moliya">
+      <div class="qator">
+        <button onclick="moliyaYukla()">↻ Yangilash</button>
+        <select id="m-kun" style="max-width:150px" onchange="moliyaYukla()">
+          <option value="7">7 kun</option><option value="30" selected>30 kun</option>
+          <option value="90">90 kun</option></select>
+        <span class="izoh" id="m-kvota-holat"></span>
+        <button id="m-kvota-tug" onclick="kvotaAlmash()">Kvota nazorati…</button>
+      </div>
+      <div class="kartalar" id="m-stat"></div>
+      <h4 style="margin:20px 0 6px">Rejalar</h4>
+      <div class="qator"><button class="asos" onclick="planModal()">+ Yangi reja</button>
+        <span class="izoh">Narx 0 bo'lsa reja mijozga ko'rinmaydi. Kvota — davr ichida
+          sarflanadigan LLM xarajati ($).</span></div>
+      <div id="plan-jadval"></div>
+      <h4 style="margin:20px 0 6px">Obunalar</h4><div id="obuna-jadval"></div>
+      <h4 style="margin:20px 0 6px">To'lovlar</h4><div id="tolov-jadval"></div>
+      <h4 style="margin:20px 0 6px">Model narxlari ($/1M token)</h4><div id="narx-jadval"></div>
+      <h4 style="margin:20px 0 6px">Oxirgi chaqiruvlar</h4><div id="xarajat-jadval"></div>
+    </div>
+    <div class="panel" id="p-jobs">
+      <div class="qator"><select id="j-holat" style="max-width:180px" onchange="jobsYukla()">
+        <option value="">Hammasi</option><option value="navbatda">Navbatda</option>
+        <option value="ketmoqda">Ketmoqda</option><option value="xato">Xato</option>
+        <option value="tayyor">Tayyor</option></select>
+        <button onclick="jobsYukla()">↻ Yangilash</button></div>
+      <div id="job-jadval"></div></div>
+  </main>
+</div>
+
+<div id="kirish" class="kirish-ekran" style="display:none">
+  <div class="kirish-k">
+    <h3 style="margin-bottom:6px">⚙ Admin panel</h3>
+    <div class="izoh" style="margin-bottom:18px">Admin login va parol bilan kiring</div>
+    <input id="a-login" placeholder="login" style="margin-bottom:8px">
+    <input id="a-parol" type="password" placeholder="parol">
+    <button class="asos" style="width:100%;margin-top:12px;padding:11px" onclick="kir()">Kirish</button>
+    <div class="izoh" id="kirish-xato" style="color:var(--qizil);margin-top:10px"></div>
+  </div>
+</div>
+
+<div class="modal" id="modal"><div class="modal-k" id="modal-tana"></div></div>
+<div id="toast"></div>
+
+<script>
+"use strict";
+const $ = s => document.querySelector(s);
+const esc = s => (s??"").toString().replace(/&/g,"&amp;").replace(/</g,"&lt;")
+                  .replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+let USER = null, TWINLAR = [], DIREKTORLAR = [];
+
+function toast(x){ const t=$("#toast"); t.textContent=x; t.classList.add("kor");
+  clearTimeout(t._t); t._t=setTimeout(()=>t.classList.remove("kor"),3000); }
+
+async function api(yol, opts){
+  const r = await fetch(yol, opts);
+  if(r.status===401 || r.status===403){ kirishKorsat(); throw new Error("ruxsat yo'q"); }
+  const j = await r.json().catch(()=>({}));
+  if(!r.ok) throw new Error(j.xato||j.xabar||("HTTP "+r.status));
+  return j;
+}
+const post = (y,t) => api(y,{method:"POST",headers:{"Content-Type":"application/json"},
+                            body:JSON.stringify(t)});
+const put  = (y,t) => api(y,{method:"PUT",headers:{"Content-Type":"application/json"},
+                            body:JSON.stringify(t)});
+const ochirish = y => api(y,{method:"DELETE"});
+const vaqtF = v => v ? String(v).replace("T"," ").slice(0,16) : "";
+
+/* ---------- kirish ---------- */
+function kirishKorsat(){ $("#ilova").style.display="none"; $("#kirish").style.display="grid"; }
+window.kir = async ()=>{
+  try{
+    await post("/api/kirish/parol", {login:$("#a-login").value.trim(),
+                                     parol:$("#a-parol").value});
+    location.reload();
+  }catch(e){ $("#kirish-xato").textContent = e.message; }
+};
+window.chiqish = async ()=>{ await fetch("/api/chiqish",{method:"POST"}); location.reload(); };
+
+/* ---------- tablar ---------- */
+document.querySelectorAll(".tab").forEach(b=>b.addEventListener("click",()=>{
+  document.querySelectorAll(".tab").forEach(x=>x.classList.toggle("faol",x===b));
+  document.querySelectorAll(".panel").forEach(p=>
+    p.classList.toggle("faol", p.id === "p"+"-"+b.dataset.p));
+  if(b.dataset.p==="userlar") userlarYukla();
+  if(b.dataset.p==="jobs") jobsYukla();
+  if(b.dataset.p==="moliya") moliyaYukla();
+}));
+
+/* ---------- xulosa ---------- */
+async function xulosaYukla(){
+  const s = await api("/api/admin/xulosa");
+  const el = (q,v)=>`<div class="st"><div class="q">${q}</div><div class="v">${v}</div></div>`;
+  $("#stat").innerHTML =
+    el("Userlar", s.userlar) + el("Twinlar", s.twinlar) + el("Direktorlar", s.direktorlar) +
+    el("Manbalar", s.manbalar) + el("Bilim bo'laklari", s.bolaklar) +
+    el("Majlislar", s.majlislar) + el("Navbatda", s.jobs_navbatda) +
+    el("Ketmoqda", s.jobs_ketmoqda) + el("Xato joblar", s.jobs_xato) +
+    el("LLM xarajati", "$"+(s.narx_jami||0).toFixed(4));
+}
+
+/* ---------- twinlar ---------- */
+async function twinlarYukla(){
+  TWINLAR = await api("/api/admin/twinlar");
+  $("#twin-jadval").innerHTML = `<table><tr><th>ID</th><th>Nom</th><th>Kategoriya</th>
+      <th>Egasi</th><th>Bilim</th><th>Holat</th><th>Xulq</th><th></th></tr>` +
+    TWINLAR.map(t=>`<tr>
+      <td>${t.id}</td>
+      <td><b>${esc(t.nom)}</b><div class="izoh">${esc(t.tavsif||"")}</div></td>
+      <td>${esc(t.kategoriya||"—")}</td>
+      <td>${esc(t.egasi_ism||"—")}</td>
+      <td>${t.bolak_soni} bo'lak</td>
+      <td>${t.faol?'<span class="belgi b-yashil">faol</span>':'<span class="belgi b-xira">o‘chiq</span>'}</td>
+      <td style="max-width:230px"><div class="izoh">${esc((t.xulq||"").slice(0,90))||"—"}</div></td>
+      <td style="white-space:nowrap">
+        <button onclick="twinModal(${t.id})">✎</button>
+        <button onclick="ruxsatModal(${t.id})">🔗</button>
+        <button class="xavf" onclick="twinOchir(${t.id})">🗑</button></td>
+    </tr>`).join("") + `</table>`;
+}
+
+window.twinModal = (id)=>{
+  const t = TWINLAR.find(x=>x.id===id) || {};
+  modal(`<h3>${id?"Twin tahriri":"Yangi twin"}</h3>
+    <label>Nom</label><input id="t-nom" value="${esc(t.nom||"")}">
+    <label>Tavsif (bilim sohasi — aniqlik tekshiruvida ishlatiladi)</label>
+    <input id="t-tavsif" value="${esc(t.tavsif||"")}">
+    <label>Xulq / xarakter (qanday gapiradi, hazil qiladimi, uslubi)</label>
+    <textarea id="t-xulq" placeholder="Masalan: Sodda tilda, misollar bilan tushuntiradi. Ba'zan hazil aralashtiradi...">${esc(t.xulq||"")}</textarea>
+    <label>Egasi (user id — o'sha odam kabinetdan sozlay oladi)</label>
+    <input id="t-egasi" type="number" value="${t.egasi_id||""}">
+    <div class="qator" style="margin-top:16px">
+      <button class="asos" onclick="twinSaqla(${id||0})">Saqlash</button>
+      <button onclick="modalYop()">Bekor</button></div>`);
+};
+
+window.twinSaqla = async (id)=>{
+  const tana = {nom:$("#t-nom").value.trim(), tavsif:$("#t-tavsif").value.trim(),
+                xulq:$("#t-xulq").value, egasi_id: +$("#t-egasi").value || null};
+  try{
+    if(id) await put("/api/admin/twin/"+id, tana);
+    else await post("/api/admin/twin", tana);
+    modalYop(); toast("Saqlandi ✓"); twinlarYukla();
+  }catch(e){ toast(e.message); }
+};
+
+window.twinOchir = async (id)=>{
+  if(!confirm("Twin va uning BARCHA bilimi o'chiriladi. Davom etamizmi?")) return;
+  await ochirish("/api/admin/twin/"+id); toast("O'chirildi"); twinlarYukla();
+};
+
+window.ruxsatModal = async (id)=>{
+  const r = await api(`/api/admin/twin/${id}/ruxsat`);
+  const t = TWINLAR.find(x=>x.id===id)||{};
+  modal(`<h3>🔗 ${esc(t.nom)} — qaysi bilimdan foydalanadi</h3>
+    <div class="izoh" style="margin-bottom:12px">Belgilangan twinlarning bilimidan
+      ham o'qiy oladi. O'zining bilimi doim ochiq.</div>
+    ${TWINLAR.map(x=>`<label style="display:flex;gap:9px;align-items:center;
+        text-transform:none;font-size:13px;color:var(--matn);margin:7px 0">
+        <input type="checkbox" style="width:auto" value="${x.id}"
+          ${r.manbalar.includes(x.id)?"checked":""} ${x.id===id?"disabled":""}>
+        ${esc(x.nom)} <span class="izoh">${x.bolak_soni} bo'lak</span></label>`).join("")}
+    <div class="qator" style="margin-top:16px">
+      <button class="asos" onclick="ruxsatSaqla(${id})">Saqlash</button>
+      <button onclick="modalYop()">Bekor</button></div>`);
+};
+
+window.ruxsatSaqla = async (id)=>{
+  const m = [...document.querySelectorAll("#modal-tana input[type=checkbox]:checked")]
+             .map(x=>+x.value);
+  await put(`/api/admin/twin/${id}/ruxsat`, {manbalar:m});
+  modalYop(); toast("Ruxsatlar saqlandi ✓");
+};
+
+/* ---------- direktorlar ---------- */
+async function direktorlarYukla(){
+  DIREKTORLAR = await api("/api/admin/direktorlar");
+  $("#dir-jadval").innerHTML = `<table><tr><th>Kod</th><th>Nom</th><th>Teglar</th>
+      <th>Twin</th><th>Rol</th><th>Holat</th><th>Persona</th><th></th></tr>` +
+    DIREKTORLAR.map(d=>`<tr>
+      <td><b style="color:${esc(d.rang)}">${esc(d.kod)}</b></td>
+      <td>${esc(d.nom)}</td>
+      <td><span class="izoh">${(d.teglar||[]).join(", ")}</span></td>
+      <td>${d.twin_id ? esc((TWINLAR.find(t=>t.id===d.twin_id)||{}).nom||d.twin_id)
+                      : '<span class="izoh">barcha</span>'}</td>
+      <td>${d.rais?'<span class="belgi b-sariq">RAIS</span>':'direktor'}</td>
+      <td>${d.faol?'<span class="belgi b-yashil">faol</span>':'<span class="belgi b-xira">o‘chiq</span>'}</td>
+      <td style="max-width:260px"><div class="izoh">${esc((d.persona||"").slice(0,100))}…</div></td>
+      <td style="white-space:nowrap">
+        <button onclick="dirModal(${d.id})">✎</button>
+        <button onclick="dirFaol(${d.id}, ${!d.faol})">${d.faol?"⏸":"▶"}</button>
+        <button class="xavf" onclick="dirOchir(${d.id})">🗑</button></td>
+    </tr>`).join("") + `</table>`;
+}
+
+window.dirModal = (id)=>{
+  const d = DIREKTORLAR.find(x=>x.id===id) || {teglar:["umumiy"], rang:"#5b8cff"};
+  modal(`<h3>${id?"Direktor tahriri":"Yangi direktor"}</h3>
+    <div style="display:grid;grid-template-columns:1fr 2fr;gap:12px">
+      <div><label>Kod (CEO, CFO...)</label><input id="d-kod" value="${esc(d.kod||"")}"></div>
+      <div><label>To'liq nom</label><input id="d-nom" value="${esc(d.nom||"")}"></div>
+    </div>
+    <label>Teglar (vergul bilan: strategiya, moliya, sotuv, marketing, operatsiya, huquq, texnologiya, hr, umumiy)</label>
+    <input id="d-teglar" value="${(d.teglar||[]).join(", ")}">
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px">
+      <div><label>Rang</label><input id="d-rang" value="${esc(d.rang||"#5b8cff")}"></div>
+      <div><label>Twin (bo'sh = barchasi)</label><input id="d-twin" type="number" value="${d.twin_id||""}"></div>
+      <div><label>Rais (sintez qiladi)</label>
+        <select id="d-rais"><option value="0">Yo'q</option>
+        <option value="1" ${d.rais?"selected":""}>Ha</option></select></div>
+    </div>
+    <label>Persona — qanday fikrlaydi (to'liq prompt)</label>
+    <textarea id="d-persona" style="min-height:220px">${esc(d.persona||"")}</textarea>
+    <div class="qator" style="margin-top:16px">
+      <button class="asos" onclick="dirSaqla(${id||0})">Saqlash</button>
+      <button onclick="modalYop()">Bekor</button></div>`);
+};
+
+window.dirSaqla = async (id)=>{
+  const tana = {kod:$("#d-kod").value.trim().toUpperCase(), nom:$("#d-nom").value.trim(),
+    persona:$("#d-persona").value,
+    teglar:$("#d-teglar").value.split(",").map(s=>s.trim()).filter(Boolean),
+    rang:$("#d-rang").value.trim(), twin_id:+$("#d-twin").value||null,
+    rais:$("#d-rais").value==="1"};
+  try{
+    if(id) await put("/api/admin/direktor/"+id, tana);
+    else await post("/api/admin/direktor", tana);
+    modalYop(); toast("Saqlandi ✓"); direktorlarYukla();
+  }catch(e){ toast(e.message); }
+};
+window.dirFaol = async (id,f)=>{ await put("/api/admin/direktor/"+id,{faol:f}); direktorlarYukla(); };
+window.dirOchir = async (id)=>{ if(!confirm("Direktor o'chirilsinmi?")) return;
+  await ochirish("/api/admin/direktor/"+id); direktorlarYukla(); };
+
+/* ---------- userlar ---------- */
+window.userlarYukla = async ()=>{
+  const q = ($("#u-qidiruv").value||"").trim();
+  const us = await api("/api/admin/userlar?limit=100&q="+encodeURIComponent(q));
+  $("#user-jadval").innerHTML = `<table><tr><th>ID</th><th>Ism</th><th>TG</th><th>Rol</th>
+      <th>Login</th><th>Profil</th><th>Holat</th><th></th></tr>` +
+    us.map(u=>`<tr>
+      <td>${u.id}</td>
+      <td><b>${esc(u.ism)} ${esc(u.familiya||"")}</b>
+        <div class="izoh">${esc(u.telefon||"")}</div></td>
+      <td>${u.tg_id?("@"+esc(u.username||u.tg_id)):"—"}</td>
+      <td><span class="belgi ${u.rol==='admin'?'b-sariq':u.rol==='egasi'?'b-yashil':'b-xira'}">${esc(u.rol)}</span></td>
+      <td>${esc(u.login||"—")}</td>
+      <td style="max-width:240px"><div class="izoh">${esc((u.profil||"").slice(0,80))||"—"}</div></td>
+      <td>${u.bloklangan?'<span class="belgi b-qizil">blok</span>':'<span class="belgi b-yashil">faol</span>'}</td>
+      <td style="white-space:nowrap">
+        <button onclick="userModal(${u.id})">✎</button>
+        <button onclick="profilKor(${u.id})" title="Profil va tarixi">🧩</button>
+        <button onclick="kirishOl(${u.id})" title="Shu user nomidan kirish">👤</button></td>
+    </tr>`).join("") + `</table>`;
+};
+
+/* profil 2.0: tuzilgan profil + o'zgarishlar tarixi */
+window.profilKor = async (uid)=>{
+  const p = await api("/api/admin/user/"+uid+"/profil");
+  const j = p.profil_jsonb || {};
+  const maydon = (q,v)=> v ? `<tr><td>${q}</td><td><b>${esc(v)}</b></td></tr>` : "";
+  const tarix = (p.profil_tarix||[]).map(t=>`<tr>
+      <td><span class="izoh">${esc((t.vaqt||"").replace("T"," ").slice(0,16))}</span></td>
+      <td><span class="belgi ${t.manba==="tanishuv"?"b-yashil":"b-xira"}">${esc(t.manba||"")}</span></td>
+      <td style="max-width:420px"><div class="izoh">${esc(t.matn||"")}</div></td>
+    </tr>`).join("");
+  modal(`<h3>${esc(p.ism||"")} — profil</h3>
+    <div class="izoh" style="margin:8px 0 12px">${esc(p.tavsif||"tanishuv testi topshirilmagan")}</div>
+    <table><tr><th>Maydon</th><th>Qiymat</th></tr>
+      ${maydon("Rol", j.rol)}${maydon("Soha", j.soha)}${maydon("Daraja", j.daraja)}
+      ${maydon("Javob uslubi", j.uslub)}${maydon("Yondashuv", j.yondashuv)}
+      ${maydon("Atamalar", j.atama)}${maydon("Maqsad", j.maqsad)}
+      ${j.tugallangan?"":'<tr><td colspan="2"><span class="izoh">Test tugallanmagan'
+        + (j.otkazildi?" (o'tkazib yuborilgan)":"") + "</span></td></tr>"}
+    </table>
+    <h4 style="margin:16px 0 6px">O'rganilgan matn</h4>
+    <div class="izoh" style="line-height:1.7">${esc(p.profil||"—")}</div>
+    <h4 style="margin:16px 0 6px">Tarix (${(p.profil_tarix||[]).length})</h4>
+    ${tarix?`<table><tr><th>Vaqt</th><th>Manba</th><th>Matn</th></tr>${tarix}</table>`
+           :'<div class="izoh">—</div>'}
+    <div class="qator" style="margin-top:14px"><button onclick="modalYop()">Yopish</button></div>`);
+};
+
+window.userModal = (id)=>{
+  modal(`<h3>User #${id}</h3>
+    <label>Rol</label>
+    <select id="u-rol"><option value="client">client</option>
+      <option value="egasi">egasi (twin egasi — kabinet)</option>
+      <option value="admin">admin (to'liq huquq)</option></select>
+    <label>Login (ustoz/admin uchun, TG'siz kirish)</label><input id="u-login">
+    <label>Yangi parol (bo'sh qoldirsangiz o'zgarmaydi)</label>
+    <input id="u-parol" type="password">
+    <label>Bloklash</label>
+    <select id="u-blok"><option value="0">Yo'q</option><option value="1">Ha</option></select>
+    <div class="qator" style="margin-top:16px">
+      <button class="asos" onclick="userSaqla(${id})">Saqlash</button>
+      <button onclick="modalYop()">Bekor</button></div>`);
+};
+
+window.userSaqla = async (id)=>{
+  const tana = {rol:$("#u-rol").value, bloklangan:$("#u-blok").value==="1"};
+  if($("#u-login").value.trim()) tana.login = $("#u-login").value.trim();
+  if($("#u-parol").value) tana.parol = $("#u-parol").value;
+  try{ await put("/api/admin/user/"+id, tana); modalYop(); toast("Saqlandi ✓"); userlarYukla(); }
+  catch(e){ toast(e.message); }
+};
+
+window.kirishOl = async (id)=>{
+  if(!confirm("Shu user nomidan kirasizmi? (admin huquqingiz saqlanadi)")) return;
+  await post("/api/admin/impersonate/"+id, {});
+  location.href = "/";
+};
+
+/* ---------- jobs ---------- */
+window.jobsYukla = async ()=>{
+  const h = $("#j-holat").value;
+  const js = await api("/api/admin/jobs?limit=60"+(h?"&holat="+h:""));
+  const jadval = `<table><tr><th>ID</th><th>Tur</th><th>Holat</th><th>User</th>
+      <th>Urinish</th><th>Yaratilgan</th><th>Xato</th><th></th></tr>` +
+    js.map(j=>`<tr>
+      <td>${j.id}</td><td>${esc(j.tur)}</td>
+      <td><span class="belgi ${j.holat==='tayyor'?'b-yashil':j.holat==='xato'?'b-qizil':
+                               j.holat==='ketmoqda'?'b-sariq':'b-xira'}">${esc(j.holat)}</span></td>
+      <td>${j.user_id||"—"}</td><td>${j.urinish}</td>
+      <td><span class="izoh">${vaqtF(j.yaratilgan)}</span></td>
+      <td style="max-width:260px"><div class="izoh">${esc((j.xato||"").slice(0,90))}</div></td>
+      <td><button onclick="jobKor(${j.id})">jurnal</button></td>
+    </tr>`).join("") + `</table>`;
+  $("#job-jadval").innerHTML = jadval;
+  if($("#jobs-qisqa")) $("#jobs-qisqa").innerHTML =
+    `<h3 style="font-size:14px;margin:6px 0 10px">Oxirgi joblar</h3>` + jadval;
+};
+
+window.jobKor = async (id)=>{
+  const j = await api("/api/admin/job/"+id);
+  modal(`<h3>Job #${id} — ${esc(j.tur)} (${esc(j.holat)})</h3>
+    ${j.xato?`<div class="izoh" style="color:var(--qizil);margin:8px 0">${esc(j.xato)}</div>`:""}
+    <pre style="background:#060910;border:1px solid var(--chiz);border-radius:10px;
+      padding:12px;margin-top:10px;font:11.5px/1.7 Consolas,monospace;color:#7fd49b;
+      max-height:50vh;overflow:auto;white-space:pre-wrap">${esc((j.loglar||[]).join("\n"))||"(jurnal bo'sh)"}</pre>
+    <div class="qator" style="margin-top:14px"><button onclick="modalYop()">Yopish</button></div>`);
+};
+
+/* ---------- moliya ----------
+   Bu bo'limdagi barcha raqamlar `xarajatlar`/`tolovlar` jadvallaridan keladi.
+   Provayder yuborgan xom JSON hech qachon xom holda chizilmaydi — faqat esc(). */
+let PLANLAR = [], KVOTA_FAOL = false;
+const som = n => (Number(n)||0).toLocaleString("uz-UZ").replace(/,/g," ");
+const usd = n => "$" + (Number(n)||0).toFixed(4);
+
+window.moliyaYukla = async ()=>{
+  const kun = $("#m-kun").value;
+  const m = await api("/api/admin/moliya?kun="+kun);
+  KVOTA_FAOL = !!m.kvota_faol;
+  const el = (q,v)=>`<div class="st"><div class="q">${q}</div><div class="v">${v}</div></div>`;
+  $("#m-stat").innerHTML =
+    el("Xarajat (jami)", usd(m.xarajat_jami_usd)) +
+    el("Xarajat (24s)", usd(m.xarajat_kun_usd)) +
+    el("Xarajat (30k)", usd(m.xarajat_oy_usd)) +
+    el("LLM chaqiruvlari", m.chaqiruvlar) +
+    el("Daromad", som(m.daromad_som)+" so'm") +
+    el("To'lovlar", m.tolovlar) +
+    el("Faol obunalar", m.obuna_faol) +
+    el("1 majlis ≈", usd(m.taxminiy_majlis_usd));
+  $("#m-kvota-holat").innerHTML =
+    `Kvota nazorati: <b style="color:${KVOTA_FAOL?"var(--yashil)":"var(--xira)"}">` +
+    `${KVOTA_FAOL?"YOQILGAN":"o'chiq"}</b> · Click: ${m.provayderlar.click?"✓":"—"}` +
+    ` · Payme: ${m.provayderlar.payme?"✓":"—"}`;
+  $("#m-kvota-tug").textContent = KVOTA_FAOL ? "Nazoratni o'chirish" : "Nazoratni yoqish";
+
+  const kunlar = (m.kunlar||[]).map(k=>
+    `<tr><td>${esc(k.kun)}</td><td>${usd(k.narx)}</td><td>${k.soni}</td></tr>`).join("");
+  const modellar = (m.modellar||[]).map(k=>
+    `<tr><td>${esc(k.model)}</td><td>${usd(k.narx)}</td><td>${k.soni}</td>
+     <td>${som(k.kirish)}</td><td>${som(k.chiqish)}</td></tr>`).join("");
+  const userlar = (m.userlar||[]).map(k=>
+    `<tr><td>${k.user_id||"—"}</td><td>${esc(k.ism||"")}</td><td>${usd(k.narx)}</td>
+     <td>${k.chaqiruv}</td>
+     <td><button onclick="xarajatKor(${k.user_id||0})">batafsil</button></td></tr>`).join("");
+  $("#xarajat-jadval").innerHTML =
+    `<div class="qator" style="align-items:flex-start;gap:18px;flex-wrap:wrap">
+       <div style="flex:1;min-width:240px"><div class="izoh">Kun bo'yicha</div>
+         <table><tr><th>Kun</th><th>Xarajat</th><th>Chaqiruv</th></tr>${kunlar}</table></div>
+       <div style="flex:1;min-width:280px"><div class="izoh">Model bo'yicha</div>
+         <table><tr><th>Model</th><th>Xarajat</th><th>Soni</th><th>Kirish tok</th>
+           <th>Chiqish tok</th></tr>${modellar}</table></div>
+       <div style="flex:1;min-width:280px"><div class="izoh">User bo'yicha (top 20)</div>
+         <table><tr><th>ID</th><th>Ism</th><th>Xarajat</th><th>Chaqiruv</th><th></th></tr>
+           ${userlar}</table></div>
+     </div>`;
+
+  PLANLAR = await api("/api/admin/planlar");
+  $("#plan-jadval").innerHTML = `<table><tr><th>Kod</th><th>Nom</th><th>Narx</th>
+      <th>Kvota $</th><th>Kun</th><th>Twinlar</th><th>Holat</th><th></th></tr>` +
+    PLANLAR.map(p=>`<tr>
+      <td>${esc(p.kod)}</td><td>${esc(p.nom)}</td><td>${som(p.oylik_narx_som)}</td>
+      <td>${Number(p.kvota_usd).toFixed(2)}</td><td>${p.kun_soni}</td>
+      <td>${(p.twinlar||[]).length?esc((p.twinlar||[]).join(", ")):"hammasi"}</td>
+      <td><span class="belgi ${p.faol?"b-yashil":"b-xira"}">${p.faol?"faol":"o'chiq"}</span></td>
+      <td><button onclick="planModal(${p.id})">tahrir</button></td>
+    </tr>`).join("") + `</table>`;
+
+  const ob = await api("/api/admin/obunalar?limit=50");
+  $("#obuna-jadval").innerHTML = `<table><tr><th>ID</th><th>User</th><th>Reja</th>
+      <th>Tugash</th><th>Ishlatilgan</th><th>Holat</th><th></th></tr>` +
+    ob.map(o=>`<tr><td>${o.id}</td><td>${esc(o.ism||o.user_id)}</td>
+      <td>${esc(o.plan_nom)}</td><td>${vaqtF(o.tugash)}</td>
+      <td>${usd(o.ishlatilgan_usd)}</td>
+      <td><span class="belgi ${o.holat==="faol"?"b-yashil":"b-xira"}">${esc(o.holat)}</span></td>
+      <td>${o.holat==="faol"?`<button onclick="obunaBekor(${o.id})">bekor</button>`:""}</td>
+    </tr>`).join("") + `</table>`;
+
+  const tl = await api("/api/admin/tolovlar?limit=50");
+  $("#tolov-jadval").innerHTML = `<table><tr><th>ID</th><th>User</th><th>Reja</th>
+      <th>Summa</th><th>Provayder</th><th>Holat</th><th>Sana</th></tr>` +
+    tl.map(t=>`<tr><td>${t.id}</td><td>${esc(t.ism||t.user_id)}</td>
+      <td>${esc(t.plan_nom)}</td><td>${som(t.summa_som)}</td>
+      <td>${esc(t.provayder)}<div class="izoh">${esc(t.provayder_id||"")}</div></td>
+      <td><span class="belgi ${t.holat==="tolangan"?"b-yashil":
+             t.holat==="bekor"?"b-qizil":"b-xira"}">${esc(t.holat)}</span></td>
+      <td><span class="izoh">${vaqtF(t.tolangan||t.yaratilgan)}</span></td>
+    </tr>`).join("") + `</table>`;
+
+  const nx = await api("/api/admin/narxlar");
+  $("#narx-jadval").innerHTML = `<table><tr><th>Model</th><th>Kirish</th><th>Chiqish</th>
+      <th>Yangilangan</th><th></th></tr>` +
+    nx.map(n=>`<tr><td>${esc(n.model)}</td>
+      <td><input id="nk-${esc(n.model)}" value="${Number(n.kirish_1m_usd)}" style="max-width:90px"></td>
+      <td><input id="nc-${esc(n.model)}" value="${Number(n.chiqish_1m_usd)}" style="max-width:90px"></td>
+      <td><span class="izoh">${vaqtF(n.yangilangan)}</span></td>
+      <td><button onclick="narxSaqla('${esc(n.model)}')">saqlash</button></td>
+    </tr>`).join("") + `</table>`;
+};
+
+window.narxSaqla = async (model)=>{
+  try{
+    await put("/api/admin/narx", {model,
+      kirish_1m_usd: parseFloat($("#nk-"+CSS.escape(model)).value)||0,
+      chiqish_1m_usd: parseFloat($("#nc-"+CSS.escape(model)).value)||0});
+    toast("Narx saqlandi ✓"); moliyaYukla();
+  }catch(e){ toast(e.message); }
+};
+
+window.kvotaAlmash = async ()=>{
+  const yangi = KVOTA_FAOL ? "0" : "1";
+  const savol = yangi === "1"
+    ? "Kvota nazorati YOQILADI: bepul promptlari tugagan userlar obunasiz savol bera olmaydi. Davom etamizmi?"
+    : "Kvota nazorati o'chiriladi — hamma cheklovsiz ishlaydi. Davom etamizmi?";
+  if(!confirm(savol)) return;
+  try{ await put("/api/admin/sozlama", {kalit:"kvota_faol", qiymat:yangi});
+       toast("Saqlandi ✓"); moliyaYukla(); }
+  catch(e){ toast(e.message); }
+};
+
+window.obunaBekor = async (id)=>{
+  if(!confirm("Obunani bekor qilamizmi?")) return;
+  await ochirish("/api/admin/obuna/"+id); toast("Bekor qilindi"); moliyaYukla();
+};
+
+window.xarajatKor = async (uid)=>{
+  const x = await api("/api/admin/xarajatlar?limit=100&user_id="+uid);
+  modal(`<h3>User #${uid} — LLM chaqiruvlari</h3>
+    <table style="margin-top:10px"><tr><th>Vaqt</th><th>Bosqich</th><th>Model</th>
+      <th>Kirish</th><th>Chiqish</th><th>Narx</th><th>Majlis</th></tr>` +
+    x.map(q=>`<tr><td><span class="izoh">${vaqtF(q.vaqt)}</span></td>
+      <td>${esc(q.bosqich)}</td><td>${esc(q.model)}</td>
+      <td>${som(q.kirish_tok)}</td><td>${som(q.chiqish_tok)}</td>
+      <td>${usd(q.narx_usd)}</td><td>${q.majlis_id||"—"}</td></tr>`).join("") +
+    `</table><div class="qator" style="margin-top:14px">
+       <button onclick="modalYop()">Yopish</button></div>`);
+};
+
+window.planModal = (id)=>{
+  const p = PLANLAR.find(x=>x.id===id) || {kod:"",nom:"",tavsif:"",oylik_narx_som:0,
+    kvota_usd:0,kun_soni:30,twinlar:[],funksiyalar:[],faol:false,tartib:100};
+  modal(`<h3>${id?"Rejani tahrirlash":"Yangi reja"}</h3>
+    <div class="qator" style="margin-top:12px">
+      <input id="pl-kod" placeholder="kod (bazaviy)" value="${esc(p.kod)}" ${id?"disabled":""}>
+      <input id="pl-nom" placeholder="Nom" value="${esc(p.nom)}">
+    </div>
+    <input id="pl-tavsif" placeholder="Qisqa tavsif" value="${esc(p.tavsif)}"
+           style="margin-top:8px">
+    <div class="qator" style="margin-top:8px">
+      <input id="pl-narx" type="number" placeholder="oylik narx (so'm)" value="${p.oylik_narx_som}">
+      <input id="pl-kvota" type="number" step="0.5" placeholder="kvota $" value="${p.kvota_usd}">
+      <input id="pl-kun" type="number" placeholder="kun" value="${p.kun_soni}">
+    </div>
+    <input id="pl-twinlar" placeholder="twin id lari (bo'sh = hammasi), vergul bilan"
+           value="${(p.twinlar||[]).join(",")}" style="margin-top:8px">
+    <input id="pl-funk" placeholder="xususiyatlar, vergul bilan"
+           value="${esc((p.funksiyalar||[]).join(", "))}" style="margin-top:8px">
+    <label class="qator" style="margin-top:10px;gap:8px">
+      <input type="checkbox" id="pl-faol" ${p.faol?"checked":""} style="width:auto">
+      <span>Faol (mijozlarga ko'rinadi)</span></label>
+    <div class="izoh" style="margin-top:8px">Narx 0 bo'lsa reja ro'yxatda ko'rinmaydi.</div>
+    <div class="qator" style="margin-top:14px">
+      <button class="asos" onclick="planSaqla(${id||0})">Saqlash</button>
+      <button onclick="modalYop()">Bekor</button></div>`);
+};
+
+window.planSaqla = async (id)=>{
+  const tana = {
+    nom: $("#pl-nom").value.trim(), tavsif: $("#pl-tavsif").value.trim(),
+    oylik_narx_som: parseInt($("#pl-narx").value)||0,
+    kvota_usd: parseFloat($("#pl-kvota").value)||0,
+    kun_soni: parseInt($("#pl-kun").value)||30,
+    twinlar: $("#pl-twinlar").value.split(",").map(s=>parseInt(s.trim()))
+             .filter(n=>!isNaN(n)),
+    funksiyalar: $("#pl-funk").value.split(",").map(s=>s.trim()).filter(Boolean),
+    faol: $("#pl-faol").checked, tartib: 100,
+  };
+  try{
+    if(id) await put("/api/admin/plan/"+id, tana);
+    else await post("/api/admin/plan", {...tana, kod:$("#pl-kod").value.trim()});
+    modalYop(); toast("Saqlandi ✓"); moliyaYukla();
+  }catch(e){ toast(e.message); }
+};
+
+/* ---------- modal ---------- */
+function modal(html){ $("#modal-tana").innerHTML = html; $("#modal").classList.add("kor"); }
+window.modalYop = ()=> $("#modal").classList.remove("kor");
+$("#modal").addEventListener("click", e=>{ if(e.target.id==="modal") modalYop(); });
+document.addEventListener("keydown", e=>{ if(e.key==="Escape") modalYop(); });
+
+/* ---------- boshlash ---------- */
+async function yukla(){
+  await xulosaYukla();
+  await twinlarYukla();
+  await direktorlarYukla();
+  await jobsYukla();
+}
+
+async function init(){
+  let k;
+  try{ k = await fetch("/api/konfig").then(r=>r.json()); }
+  catch(e){ document.body.innerHTML = "Server bilan aloqa yo'q"; return; }
+  USER = k.user;
+  if(!USER || USER.rol !== "admin"){ kirishKorsat(); return; }
+  $("#ilova").style.display = "block";
+  $("#kim").textContent = USER.ism + " (admin)";
+  yukla();
+}
+init();
+</script>
+</body>
+</html>

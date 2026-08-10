@@ -1,0 +1,41 @@
+# ============================================================
+#  Sirlar — HECH QACHON gitga tushmaydi
+# ============================================================
+.env
+.env.*
+!.env.example
+
+# ============================================================
+#  Python
+# ============================================================
+.venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+
+# ============================================================
+#  Bilim bazasi va media — kod emas, ma'lumot (yuzlab MB)
+# ============================================================
+kengash/baza/
+kengash/kanonik/
+kengash/chiqish/
+deploy/kengash/
+transkript/chiqish/
+aksent_test/*.wav
+aksent_test/*.mp3
+
+# ============================================================
+#  Deploy artefaktlari — `platforma/` dan robocopy bilan yasaladi
+# ============================================================
+deploy_platforma/
+*.tar.gz
+
+# ============================================================
+#  Tizim
+# ============================================================
+.DS_Store
+Thumbs.db
+*.log
+*.sqlite
+*.db
