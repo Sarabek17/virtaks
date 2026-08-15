@@ -15,8 +15,8 @@ from pydantic import BaseModel
 
 from . import (admin, aniqlik, auth, cheklov, db, fragment, jobs, kabinet,
                maqsad, maqsad_oqim, mentor, monitoring, oquv, pg, pochta,
-               profil, pul, skilllar, storage, suhbat, tanishuv, tg, tolov,
-               vazifa, yordamchi)
+               profil, pul, skilllar, storage, suhbat, tanishuv, tg, tizim,
+               tizim_oqim, tolov, vazifa, yordamchi)
 from .sozlama import ILDIZ, MUHIT, log
 
 app = FastAPI(title="Virtaks platformasi")
@@ -762,9 +762,10 @@ def chat(s: ChatSorov, request: Request):
         return JSONResponse({"xato": "Savol juda uzun (4000 belgi chegara)"},
                             status_code=400)
 
-    # --- suhbat turi: dars (mavzu_id), maqsad sikli (maqsad_id) yoki oddiy chat
+    # --- suhbat turi: dars (mavzu_id), maqsad sikli (maqsad_id), biznes
+    #     tizimlashtirish (tizim_maqsad_id) yoki oddiy chat
     sid = s.suhbat
-    mavzu = maqsad_q = None
+    mavzu = maqsad_q = tizim_q = None
     if sid is not None:
         sq = db.suhbat_ol(sid)
         if not sq or sq["user_id"] != u["id"]:
@@ -773,9 +774,12 @@ def chat(s: ChatSorov, request: Request):
             mavzu = oquv.mavzu_ol(sq["mavzu_id"])
         elif sq.get("maqsad_id"):
             maqsad_q = maqsad.ol(sq["maqsad_id"], u["id"])
+        elif sq.get("tizim_maqsad_id"):
+            tizim_q = tizim.maqsad_ol(sq["tizim_maqsad_id"], u["id"])
 
     twin_id = ((mavzu["twin_id"] if mavzu else None)
                or (maqsad_q["twin_id"] if maqsad_q else None)
+               or (tizim_q["twin_id"] if tizim_q else None)
                or s.twin_id or _twin_tanla(u))
     if not twin_id:
         return JSONResponse({"xato": "Faol ustoz topilmadi"}, status_code=400)
@@ -808,6 +812,8 @@ def chat(s: ChatSorov, request: Request):
             savol = mentor.BOSHLASH
         if maqsad_q and savol == maqsad_oqim.BOSHLASH_MATN:
             savol = maqsad_oqim.BOSHLASH
+        if tizim_q and savol == tizim_oqim.BOSHLASH_MATN:
+            savol = tizim_oqim.BOSHLASH
         db.chat_ochir(s.qayta_id)
 
     if sid is None:
@@ -819,6 +825,9 @@ def chat(s: ChatSorov, request: Request):
     elif maqsad_q:
         hodisalar, toxtat = maqsad_oqim.oqim_navbat(u, twin, maqsad_q, savol,
                                                     sid, bepul=bepul)
+    elif tizim_q:
+        hodisalar, toxtat = tizim_oqim.oqim_navbat(u, twin, tizim_q, savol,
+                                                   sid, bepul=bepul)
     else:
         hodisalar, toxtat = yordamchi.oqim_navbat(u, twin, savol, sid,
                                                   bepul=bepul)
@@ -1466,6 +1475,360 @@ def maqsad_qayta_tahlil(s: MaqsadId, request: Request):
         return maqsad.qayta_tahlil(m)
     except ValueError as e:
         return JSONResponse({"xato": str(e)}, status_code=400)
+
+
+# ---------------------------------------------------------------- tizimlashtirish halqasi (biznes)
+
+def _tizim_yuza(u: dict, twin_id: int | None):
+    """(twin, xato) — tizim endpointlari uchun yagona tekshiruv."""
+    t, xato = _mentor_twin(u, twin_id)
+    if xato:
+        return None, xato
+    if not skilllar.faolmi(t["id"], "tizim"):
+        return None, JSONResponse(
+            {"xato": "Bu ustozda tizimlashtirish rejimi yoqilmagan", "yoq": True},
+            status_code=404)
+    return t, None
+
+
+def _diag_ol(u: dict, did: int):
+    d = tizim.diag_ol(did, u["id"])
+    if not d:
+        return None, _404()
+    return d, None
+
+
+def _tizim_maqsad_ol(u: dict, mid: int):
+    m = tizim.maqsad_ol(mid, u["id"])
+    if not m:
+        return None, _404()
+    return m, None
+
+
+def _tizim_fokus(e: tizim.Fokus):
+    y = e.yozuv or {}
+    return JSONResponse(
+        {"xato": str(e), "fokus": True,
+         "joriy": {"id": y.get("id"), "tur": y.get("tur"),
+                   "holat": y.get("holat"), "korxona": y.get("korxona")}},
+        status_code=409)
+
+
+@app.get("/api/tizim")
+def tizim_manzara(request: Request, twin_id: int = 0):
+    """Bo'limning butun holati — bitta so'rovda."""
+    u = _joriy(request)
+    if not u:
+        return _401()
+    t, xato = _tizim_yuza(u, twin_id or None)
+    if xato:
+        return xato
+    d = tizim.manzara(u["id"], t["id"])
+    d["twin"] = {"id": t["id"], "nom": t["nom"]}
+    return d
+
+
+@app.get("/api/tizim/savollar")
+def tizim_savollar(request: Request, diagnostika_id: int):
+    """Savol banki + shu diagnostikadagi javoblar (UI bitta so'rovda oladi)."""
+    u = _joriy(request)
+    if not u:
+        return _401()
+    d, xato = _diag_ol(u, diagnostika_id)
+    if xato:
+        return xato
+    return {"diagnostika": d,
+            "savollar": tizim.savollar(d["tur"], d["versiya"], d["onlayn"]),
+            "javoblar": tizim.javoblar(d["id"]),
+            "sifat": tizim.SIFAT,
+            "olcham": tizim._olcham(d["id"])}
+
+
+class DiagBoshla(BaseModel):
+    twin_id: int | None = None
+    tur: str
+    korxona: str = ""
+    onlayn: bool = False
+
+
+@app.post("/api/tizim/diagnostika")
+def tizim_diag_boshla(s: DiagBoshla, request: Request):
+    u = _joriy(request)
+    if not u:
+        return _401()
+    if not cheklov.ruxsat("maqsad", str(u["id"])):
+        return _429()
+    t, xato = _tizim_yuza(u, s.twin_id)
+    if xato:
+        return xato
+    try:
+        d = tizim.diag_boshla(u["id"], t["id"], s.tur, s.korxona, s.onlayn)
+    except tizim.Fokus as e:
+        return _tizim_fokus(e)
+    except (ValueError, RuntimeError) as e:
+        return JSONResponse({"xato": str(e)}, status_code=400)
+    return {"ok": True, "diagnostika": d}
+
+
+class DiagJavob(BaseModel):
+    diagnostika_id: int
+    savol_id: int
+    javob: str
+    sifat: int | None = None
+    izoh: str = ""
+
+
+@app.post("/api/tizim/javob")
+def tizim_javob(s: DiagJavob, request: Request):
+    """Bitta javob. Foiz shu yerda, SERVERDA qayta hisoblanadi."""
+    u = _joriy(request)
+    if not u:
+        return _401()
+    if not cheklov.ruxsat("diag_javob", str(u["id"])):
+        return _429()
+    d, xato = _diag_ol(u, s.diagnostika_id)
+    if xato:
+        return xato
+    try:
+        olcham = tizim.javob_yoz(d, s.savol_id, s.javob, s.sifat, s.izoh)
+    except ValueError as e:
+        return JSONResponse({"xato": str(e)}, status_code=400)
+    return {"ok": True, "olcham": olcham}
+
+
+class DiagId(BaseModel):
+    diagnostika_id: int
+
+
+@app.post("/api/tizim/diagnostika/yakunla")
+def tizim_diag_yakunla(s: DiagId, request: Request):
+    u = _joriy(request)
+    if not u:
+        return _401()
+    if not cheklov.ruxsat("maqsad", str(u["id"])):
+        return _429()
+    d, xato = _diag_ol(u, s.diagnostika_id)
+    if xato:
+        return xato
+    ruxsat, kod, xabar = pul.tekshir(u["id"], d["twin_id"])
+    if not ruxsat:
+        return JSONResponse({"ok": False, "holat": "kvota", "kod": kod,
+                             "xabar": xabar}, status_code=402)
+    try:
+        return tizim.diag_yakunla(d)
+    except ValueError as e:
+        return JSONResponse({"xato": str(e)}, status_code=400)
+
+
+@app.post("/api/tizim/diagnostika/bekor")
+def tizim_diag_bekor(s: DiagId, request: Request):
+    u = _joriy(request)
+    if not u:
+        return _401()
+    d, xato = _diag_ol(u, s.diagnostika_id)
+    if xato:
+        return xato
+    tizim.diag_bekor(d)
+    return {"ok": True, "manzara": tizim.manzara(u["id"], d["twin_id"])}
+
+
+class TizimMaqsadBoshla(BaseModel):
+    twin_id: int | None = None
+    diagnostika_id: int | None = None
+    korxona: str = ""
+
+
+@app.post("/api/tizim/maqsad/boshla")
+def tizim_maqsad_boshla(s: TizimMaqsadBoshla, request: Request):
+    u = _joriy(request)
+    if not u:
+        return _401()
+    if not cheklov.ruxsat("maqsad", str(u["id"])):
+        return _429()
+    t, xato = _tizim_yuza(u, s.twin_id)
+    if xato:
+        return xato
+    try:
+        m = tizim.maqsad_boshla(u["id"], t["id"], s.diagnostika_id, s.korxona)
+    except tizim.Fokus as e:
+        return _tizim_fokus(e)
+    return {"ok": True, "maqsad_id": m["id"],
+            "boshlash": tizim_oqim.BOSHLASH}
+
+
+class TizimMaqsadId(BaseModel):
+    maqsad_id: int
+
+
+@app.post("/api/tizim/maqsad/suhbat")
+def tizim_maqsad_suhbat(s: TizimMaqsadId, request: Request):
+    u = _joriy(request)
+    if not u:
+        return _401()
+    m, xato = _tizim_maqsad_ol(u, s.maqsad_id)
+    if xato:
+        return xato
+    sid = tizim_oqim.suhbat_ol(m)
+    return {"ok": True, "suhbat_id": sid, "maqsad_id": m["id"],
+            "yangi": db.suhbat_soni(sid) == 0,
+            "boshlash": tizim_oqim.BOSHLASH}
+
+
+@app.post("/api/tizim/maqsad/xulosa")
+def tizim_maqsad_xulosa(s: TizimMaqsadId, request: Request):
+    """Suhbatdan SMART kartani ajratadi. Bahoni SERVER qo'yadi."""
+    u = _joriy(request)
+    if not u:
+        return _401()
+    if not cheklov.ruxsat("maqsad", str(u["id"])):
+        return _429()
+    m, xato = _tizim_maqsad_ol(u, s.maqsad_id)
+    if xato:
+        return xato
+    twin = db.twin_ol(m["twin_id"])
+    if not twin:
+        return _404()
+    ruxsat, kod, xabar = pul.tekshir(u["id"], m["twin_id"])
+    if not ruxsat:
+        return JSONResponse({"ok": False, "holat": "kvota", "kod": kod,
+                             "xabar": xabar}, status_code=402)
+    try:
+        yangi = tizim_oqim.karta_ol(u, twin, m)
+    except ValueError as e:
+        return JSONResponse({"xato": str(e)}, status_code=400)
+    except Exception as e:                                     # noqa: BLE001
+        log(f"tizim karta xatosi: {type(e).__name__}: {str(e)[:150]}")
+        return JSONResponse({"xato": "Xulosa tayyorlanmadi, qayta urining"},
+                            status_code=500)
+    return {"ok": True, "maqsad": yangi}
+
+
+class TizimKarta(BaseModel):
+    maqsad_id: int
+    tafsilot: dict = {}
+    sarlavha: str = ""
+
+
+@app.post("/api/tizim/maqsad/saqla")
+def tizim_maqsad_saqla(s: TizimKarta, request: Request):
+    """Kartani qo'lda tahrirlash — LLM'siz, bepul."""
+    u = _joriy(request)
+    if not u:
+        return _401()
+    m, xato = _tizim_maqsad_ol(u, s.maqsad_id)
+    if xato:
+        return xato
+    try:
+        return {"ok": True,
+                "maqsad": tizim.maqsad_saqla(m, s.tafsilot, s.sarlavha)}
+    except ValueError as e:
+        return JSONResponse({"xato": str(e)}, status_code=400)
+
+
+@app.post("/api/tizim/maqsad/tasdiqla")
+def tizim_maqsad_tasdiqla(s: TizimMaqsadId, request: Request):
+    """SMART yashil bo'lsa `faol` ga o'tkazadi va reja joblarini qo'yadi."""
+    u = _joriy(request)
+    if not u:
+        return _401()
+    if not cheklov.ruxsat("maqsad", str(u["id"])):
+        return _429()
+    m, xato = _tizim_maqsad_ol(u, s.maqsad_id)
+    if xato:
+        return xato
+    ruxsat, kod, xabar = pul.tekshir(u["id"], m["twin_id"])
+    if not ruxsat:
+        return JSONResponse({"ok": False, "holat": "kvota", "kod": kod,
+                             "xabar": xabar}, status_code=402)
+    try:
+        return tizim.maqsad_tasdiqla(m)
+    except ValueError as e:
+        # SMART mezoni qizil — bu 409 (holat mos emas), 400 emas
+        return JSONResponse({"xato": str(e), "smart": tizim.smart_bahola(m)},
+                            status_code=409)
+
+
+@app.post("/api/tizim/maqsad/bekor")
+def tizim_maqsad_bekor(s: TizimMaqsadId, request: Request):
+    u = _joriy(request)
+    if not u:
+        return _401()
+    m, xato = _tizim_maqsad_ol(u, s.maqsad_id)
+    if xato:
+        return xato
+    tizim.maqsad_bekor(m)
+    return {"ok": True, "manzara": tizim.manzara(u["id"], m["twin_id"])}
+
+
+@app.get("/api/tizim/reja/{maqsad_id}")
+def tizim_reja_royxat(maqsad_id: int, request: Request):
+    u = _joriy(request)
+    if not u:
+        return _401()
+    m, xato = _tizim_maqsad_ol(u, maqsad_id)
+    if xato:
+        return xato
+    return {"rejalar": tizim.reja_ol(m["id"]),
+            "bolimlar": [dict(v, kod=k) for k, v in tizim.BOLIMLAR.items()]}
+
+
+class RejaTahrir(BaseModel):
+    qatorlar: list = []
+    sarlavha: str = ""
+    izoh: str = ""
+
+
+@app.put("/api/tizim/reja/{rid}")
+def tizim_reja_saqla(rid: int, s: RejaTahrir, request: Request):
+    """Jadval tahriri. Yig'indi baribir serverda qayta hisoblanadi."""
+    u = _joriy(request)
+    if not u:
+        return _401()
+    r = tizim.reja_bitta(rid, u["id"])
+    if not r:
+        return _404()
+    return {"ok": True, "reja": tizim.reja_saqla(r, s.qatorlar, s.sarlavha,
+                                                 s.izoh)}
+
+
+@app.post("/api/tizim/reja/{rid}/tasdiqla")
+def tizim_reja_tasdiqla(rid: int, request: Request):
+    u = _joriy(request)
+    if not u:
+        return _401()
+    r = tizim.reja_bitta(rid, u["id"])
+    if not r:
+        return _404()
+    n = tizim.reja_tasdiqla(r)
+    return {"ok": True, "reja": n, "rejalar": tizim.reja_ol(r["maqsad_id"])}
+
+
+class RejaQayta(BaseModel):
+    maqsad_id: int
+    bolim: str
+
+
+@app.post("/api/tizim/reja/qayta")
+def tizim_reja_qayta(s: RejaQayta, request: Request):
+    """Bitta bo'lim rejasini qaytadan qurish (job)."""
+    u = _joriy(request)
+    if not u:
+        return _401()
+    if not cheklov.ruxsat("maqsad", str(u["id"])):
+        return _429()
+    m, xato = _tizim_maqsad_ol(u, s.maqsad_id)
+    if xato:
+        return xato
+    if s.bolim not in tizim.BOLIMLAR:
+        return JSONResponse({"xato": "noma'lum bo'lim"}, status_code=400)
+    ruxsat, kod, xabar = pul.tekshir(u["id"], m["twin_id"])
+    if not ruxsat:
+        return JSONResponse({"ok": False, "holat": "kvota", "kod": kod,
+                             "xabar": xabar}, status_code=402)
+    jid = jobs.qoshish("tizim_reja", {"maqsad_id": m["id"], "bolim": s.bolim},
+                       user_id=u["id"], twin_id=m["twin_id"],
+                       ustunlik=3, muhlat_s=900, max_urinish=2)
+    return {"ok": True, "job_id": jid}
 
 
 # ---------------------------------------------------------------- chuqur tahlil (eski quvur)

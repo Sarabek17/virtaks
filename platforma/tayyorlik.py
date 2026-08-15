@@ -13,7 +13,7 @@ import argparse
 import os
 import sys
 
-from . import auth, llm, pg, pul, storage, zaxira
+from . import auth, llm, pg, pul, skilllar, storage, tizim, zaxira
 from .sozlama import log
 
 XATO, OGOH = [], []
@@ -301,6 +301,76 @@ def web_ko():
     tek(s.status_code == 200, "/salomatlik javob beradi", str(s.status_code))
 
 
+# ---------------------------------------------------------------- 10. tizimlashtirish
+
+def tizim_ko():
+    """Biznes halqasi: savol banki, foiz formulasi, oq ro'yxatlar."""
+    bolim("10. Tizimlashtirish halqasi (CJM/EJM)")
+
+    jadvallar = pg.hammasi(
+        """SELECT table_name FROM information_schema.tables
+           WHERE table_name = ANY(%s)""",
+        ["diag_savollar", "diagnostikalar", "diag_javoblar",
+         "tizim_maqsadlar", "bolim_rejalar"])
+    bor = {q[0] for q in jadvallar}
+    tek(len(bor) == 5, "011_tizim.sql qo'llangan",
+        f"{len(bor)}/5 jadval")
+    if len(bor) < 5:
+        return
+
+    # --- savol banki to'liqmi (CJM 560 + EJM 366 = 926)
+    soni = {r["tur"]: r["soni"] for r in tizim.bank_holati()}
+    tek(soni.get("cjm") == tizim.BANK_KUTILGAN["cjm"], "CJM savollari to'liq",
+        f"{soni.get('cjm', 0)} / {tizim.BANK_KUTILGAN['cjm']}")
+    tek(soni.get("ejm") == tizim.BANK_KUTILGAN["ejm"], "EJM savollari to'liq",
+        f"{soni.get('ejm', 0)} / {tizim.BANK_KUTILGAN['ejm']}")
+
+    bosh = pg.bitta("SELECT count(*) FROM diag_savollar WHERE btrim(matn) = ''")
+    tek(bosh[0] == 0, "bo'sh matnli savol yo'q", f"{bosh[0]} ta")
+
+    # --- foiz formulasi: maxraj BARCHA savollar (javobsizi ham) bo'lsin.
+    # Excel bilan bir xil bo'lishi shart — aks holda foiz "o'z-o'zidan" oshadi.
+    yomon = pg.bitta(
+        """SELECT count(*) FROM diagnostikalar d
+           WHERE d.holat='tayyor' AND d.foiz IS NOT NULL
+             AND d.foiz <> round(100.0 * (
+                   SELECT count(*) FROM diag_javoblar j
+                    WHERE j.diagnostika_id = d.id AND j.javob='ha')
+                 / greatest(1, (
+                   SELECT count(*) FROM diag_savollar s
+                    WHERE s.tur = d.tur AND s.versiya = d.versiya
+                      AND (NOT d.onlayn OR NOT s.ixtiyoriy))))""")
+    tek(yomon[0] == 0, "foiz = «ha» / BARCHA savollar (Excel formulasi)",
+        f"{yomon[0]} ta mos kelmadi")
+
+    # --- oq ro'yxatlar
+    tek(set(tizim.JAVOBLAR) == {"ha", "yoq", "qisman"}, "javob kodlari uchta")
+    tek(len(tizim.HALQA) == 10, "halqa 10 qadam", str(len(tizim.HALQA)))
+    tek(len(tizim.BOLIMLAR) == 6, "olti bo'lim", ", ".join(tizim.BOLIMLAR))
+    tek(all(b["tur"] in tizim.JADVAL_MAYDON for b in tizim.BOLIMLAR.values()),
+        "har bo'lim quroliga jadval sxemasi bor")
+    tek(all(m in tizim.MAYDON_NOM for ms in tizim.JADVAL_MAYDON.values()
+            for m in ms), "har maydonning UI yorlig'i bor")
+    tek(skilllar.STANDART.get("tizim") is True, "«tizim» rejimi standart yoqiq")
+
+    # --- yig'indini SERVER hisoblaganmi (bazadagi rejalar bo'yicha)
+    nomos = []
+    for r in pg.hammasi_d("SELECT id, tur, jadval, jami FROM bolim_rejalar"):
+        kutilgan = tizim.jami_hisobla(r["tur"], list(r["jadval"] or []))
+        if {k: str(v) for k, v in kutilgan.items()} != \
+           {k: str(v) for k, v in (r["jami"] or {}).items()}:
+            nomos.append(r["id"])
+    tek(not nomos, "reja yig'indilari server hisobiga mos",
+        f"{len(nomos)} ta reja mos emas", muhim=False)
+
+    # --- LLM to'lov modullariga kirmagan (mavjud qoida yangi modulda ham)
+    for nom in ("pul", "tolov"):
+        yol = os.path.join(os.path.dirname(tizim.__file__), f"{nom}.py")
+        matn = open(yol, encoding="utf-8").read()
+        tek("import llm" not in matn and "from .llm" not in matn,
+            f"{nom}.py llm ni import qilmaydi")
+
+
 def main():
     p = argparse.ArgumentParser()
     p.add_argument("--tez", action="store_true", help="S3 yozish sinovisiz")
@@ -316,6 +386,7 @@ def main():
     navbat()
     zaxiralar()
     web_ko()
+    tizim_ko()
 
     print("\n" + "=" * 60)
     if XATO:

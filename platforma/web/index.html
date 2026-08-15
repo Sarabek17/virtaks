@@ -409,6 +409,12 @@ audio { width: 100%; margin: 4px 0; }
         <span style="flex:1;text-align:left">O'quv rejam</span>
         <span class="belgi urgu-b yashirin" id="mentor-belgi"></span>
       </button>
+      <button class="tug keng yashirin" id="tizim-tug" type="button"
+              style="margin-top:8px;justify-content:flex-start">
+        <span aria-hidden="true">🏭</span>
+        <span style="flex:1;text-align:left">Biznes tizimi</span>
+        <span class="belgi urgu-b yashirin" id="tizim-belgi"></span>
+      </button>
       <input type="search" id="filtr" placeholder="Suhbatlardan qidirish"
              aria-label="Suhbatlardan qidirish" style="margin-top:10px">
     </div>
@@ -444,6 +450,9 @@ audio { width: 100%; margin: 4px 0; }
     </div>
     <div class="asos-tan yashirin" id="maqsad-ekran">
       <div class="ich tor" id="maqsad-tan"></div>
+    </div>
+    <div class="asos-tan yashirin" id="tizim-ekran">
+      <div class="ich" id="tizim-tan"></div>
     </div>
     <div class="yozish" id="yozish-quti">
       <div class="yozish-ich">
@@ -780,7 +789,9 @@ async function suhbatOch(sid, manzilsiz) {
     /* Dars va maqsad sikli ham oddiy suhbat — faqat ustida lenta turadi. */
     if (s && s.mavzu_id) x.appendChild(darsLenta(s));
     else if (s && s.maqsad_id) x.appendChild(maqsadLenta(s));
-    if (!juftlar.length && !(s && (s.mavzu_id || s.maqsad_id))) {
+    else if (s && s.tizim_maqsad_id) x.appendChild(tizimLenta(s));
+    if (!juftlar.length &&
+        !(s && (s.mavzu_id || s.maqsad_id || s.tizim_maqsad_id))) {
       heroChiz(); return;
     }
     juftlar.forEach(function (r) { x.appendChild(juftEl(r)); });
@@ -893,9 +904,10 @@ function twinMenyu() {
         $("#twin-nom").textContent = t.nom;
         ustozChiz();
         try { await api.yubor("/api/twin", { twin_id: t.id }); } catch (e) {}
-        MENTOR = null; MAQSAD = null;
+        MENTOR = null; MAQSAD = null; TIZIM = null;
         mentorYangila();              // har ustozning o'z o'quv rejasi bor
         maqsadYangila();              // maqsad sikli ham twin bo'yicha alohida
+        tizimYangila();               // biznes halqasi ham twinga bog'liq
         if (!JORIY) heroChiz();
       },
     }, h("div.ustoz-q",
@@ -1483,12 +1495,14 @@ const M_HOLAT = {
 };
 
 function ekran(nom) {
-  const m = nom === "mentor", g = nom === "maqsad";
+  const m = nom === "mentor", g = nom === "maqsad", z = nom === "tizim";
   $("#mentor-ekran").classList.toggle("yashirin", !m);
   $("#maqsad-ekran").classList.toggle("yashirin", !g);
-  $("#oqim").classList.toggle("yashirin", m || g);
-  $("#yozish-quti").classList.toggle("yashirin", m || g);
+  $("#tizim-ekran").classList.toggle("yashirin", !z);
+  $("#oqim").classList.toggle("yashirin", m || g || z);
+  $("#yozish-quti").classList.toggle("yashirin", m || g || z);
   if (!g) maqsadTaymerToxtat();
+  if (!z) tzTaymerToxtat();
 }
 
 function mentorTugmaChiz() {
@@ -2698,6 +2712,1045 @@ function maqsadLenta(s) {
       onclick: function () { maqsadOch(); } }, "Maqsad paneli"));
 }
 
+/* ====================================================== tizimlashtirish halqasi
+   Biznes uchun: CJM/EJM diagnostikasi -> xulosa -> SMART maqsad -> bo'lim
+   rejalari (SSP, mediaplan, moliya modeli, xodim rejasi, Gantt, roadmap).
+
+   Bu yerda faqat KO'RINISH. Foiz, SMART bahosi, jadval yig'indisi va holat
+   o'tishlari — hammasi SERVERDA hisoblanadi; UI ularni chizadi va tugma
+   beradi. Jadval ustunlari ham serverdan keladi (`maydonlar`), shunda
+   sxema bitta joyda turadi. */
+let TIZIM = null;          // manzara (/api/tizim)
+let TIZIM_TAYMER = null;   // worker ishlayotganda avtomatik yangilash
+let DIAG = null;           // ochiq cheklist: {id, d, savollar, javoblar, ...}
+let DIAG_FILTR = false;    // faqat javob berilmaganlarini ko'rsatish
+
+const SMART_NOM = {
+  aniq:     "S — Aniq",
+  olchov:   "M — O'lchanadi",
+  erishsa:  "A — Erishsa bo'ladi",
+  ahamiyat: "R — Ahamiyatli",
+  muddat:   "T — Muddatli",
+};
+
+const TZ_JAVOB = [
+  { kod: "ha", nom: "Ha" },
+  { kod: "qisman", nom: "Qisman" },
+  { kod: "yoq", nom: "Yo'q" },
+];
+
+function tzTwin() { return JORIY_TWIN ? JORIY_TWIN.id : 0; }
+
+/** Raqamni o'qish uchun ajratadi: 1200000 -> "1 200 000". */
+function tzSon(n) {
+  const x = Math.round((Number(n) || 0) * 100) / 100;
+  const p = String(x).split(".");
+  p[0] = p[0].replace(/\B(?=(\d{3})+(?!\d))/g, " ");
+  return p.join(",");
+}
+
+function tzTaymerToxtat() {
+  if (TIZIM_TAYMER) { clearTimeout(TIZIM_TAYMER); TIZIM_TAYMER = null; }
+}
+
+/** Kvota tugagan bo'lsa rejalar oynasi, aks holda oddiy toast. */
+function tzXato(e) {
+  if (e && e.kod === 402) { rejalarOyna(e.tan); return; }
+  xatoToast(e);
+}
+
+function tizimTugmaChiz() {
+  const t = $("#tizim-tug"), b = $("#tizim-belgi");
+  if (!TIZIM || TIZIM.yoq) { t.classList.add("yashirin"); return; }
+  t.classList.remove("yashirin");
+  const kutish = tzKutyaptimi(TIZIM);
+  const ochiq = Object.keys(TIZIM.diagnostikalar || {}).some(function (k) {
+    const x = TIZIM.diagnostikalar[k];
+    return x && x.holat === "toldirilmoqda";
+  });
+  b.classList.toggle("yashirin", !(kutish || ochiq));
+  b.textContent = kutish ? "…" : ochiq ? "!" : "";
+}
+
+async function tizimYangila() {
+  try {
+    TIZIM = await api.ol("/api/tizim?twin_id=" + tzTwin());
+  } catch (e) {
+    TIZIM = { yoq: true };   /* rejim o'chiq — bo'lim umuman ko'rinmaydi */
+  }
+  tizimTugmaChiz();
+  return TIZIM;
+}
+
+function tizimOch(manzilsiz) {
+  JORIY = null; DIAG = null;
+  if (!manzilsiz && location.hash !== "#/tizim") location.hash = "#/tizim";
+  ekran("tizim");
+  $("#bosh-sarlavha").textContent = "Biznes tizimi";
+  tarixChiz();
+  yon.yop();
+  return UI.holat.yur($("#tizim-tan"), function () {
+    return api.ol("/api/tizim?twin_id=" + tzTwin());
+  }, tizimChiz, { yuklanmoqda: "Tizimlashtirish bo'limi yuklanmoqda...",
+                  boshmi: function () { return false; } });
+}
+
+/* --- asosiy manzara ----------------------------------------------------- */
+function tizimChiz(d, el) {
+  TIZIM = d; tizimTugmaChiz(); tzTaymerToxtat();
+
+  el.appendChild(h("div.karta.bolim-oraliq", h("div.karta-ich",
+    h("h2", "Biznesni tizimlashtirish"),
+    h("div.izoh", { style: "margin:6px 0 14px;line-height:1.7" },
+      "Halqa: avval mijoz va xodim yo'lini tekshiramiz, keyin shu og'riqdan " +
+      "SMART maqsad chiqaramiz va uni bo'limlar kesimida rejaga aylantiramiz."),
+    tzHalqa(d))));
+
+  tizimTahlil(d, el);
+  tizimMaqsad(d, el);
+  if (d.maqsad && d.maqsad.holat === "faol") tizimRejalar(d, el);
+  if ((d.tarix || []).length) tizimTarix(d, el);
+
+  if (tzKutyaptimi(d)) {
+    TIZIM_TAYMER = setTimeout(function () { tizimOch(true); }, 6000);
+  }
+}
+
+/** Serverda ish ketyaptimi (xulosa yoki reja qurilmoqda). */
+function tzKutyaptimi(d) {
+  const dg = d.diagnostikalar || {};
+  if (Object.keys(dg).some(function (k) {
+    return dg[k] && dg[k].holat === "xulosa_kutilmoqda"; })) return true;
+  return !!(d.maqsad && d.maqsad.holat === "faol" &&
+            (d.rejalar || []).length < (d.bolimlar || []).length);
+}
+
+function tzJoriyQadam(d) {
+  const m = d.maqsad;
+  if (m && m.holat === "faol") return 3;
+  if (m) return 2;
+  const dg = d.diagnostikalar || {};
+  const tayyor = Object.keys(dg).some(function (k) {
+    return dg[k] && dg[k].holat === "tayyor"; });
+  return tayyor ? 2 : 1;
+}
+
+function tzHalqa(d) {
+  const joriy = tzJoriyQadam(d);
+  const quti = h("div.tz-halqa");
+  (d.halqa || []).forEach(function (q) {
+    const sinf = !q.tayyor ? ".kelajak" : q.n < joriy ? ".tugadi"
+               : q.n === joriy ? ".joriy" : "";
+    quti.appendChild(h("div.tz-q" + sinf, {
+      title: q.tayyor ? q.nom : q.nom + " — keyingi bosqichda ochiladi" },
+      h("span.n", q.n < joriy && q.tayyor ? "✓" : String(q.n)),
+      h("span", q.nom)));
+  });
+  return quti;
+}
+
+/* --- 1-qadam: TAHLIL ---------------------------------------------------- */
+function tizimTahlil(d, el) {
+  el.appendChild(h("div.bolim-bosh", h("h2", "1. Tahlil"),
+    h("span.izoh.osdi", "mijoz va xodim yo'li bo'yicha cheklist")));
+  const quti = h("div.tz-kartalar.bolim-oraliq");
+  if ((d.bank || []).length) {
+    Object.keys(d.tur_nom || {}).forEach(function (tur) {
+      quti.appendChild(tzDiagKarta(d, tur));
+    });
+  } else {
+    quti.appendChild(h("div.fikr-k.taklif-f",
+      h("div.bosh", "Savol banki yuklanmagan"),
+      "Diagnostika savollari hali bazaga yuklanmagan — yuklangach bu " +
+      "bo'lim ishlaydi."));
+  }
+  el.appendChild(quti);
+}
+
+function tzDiagKarta(d, tur) {
+  const x = (d.diagnostikalar || {})[tur];
+  const nom = (d.tur_nom || {})[tur] || tur.toUpperCase();
+  const bank = (d.bank || []).find(function (b) { return b.tur === tur; });
+  const k = h("div.karta"), ich = h("div.karta-ich");
+  k.appendChild(ich);
+  ich.appendChild(h("h3", nom));
+
+  if (!x) {
+    ich.appendChild(h("div.izoh", { style: "margin:6px 0 14px;line-height:1.7" },
+      tur === "cjm"
+        ? "Mijoz sizni qanday topadi, qanday sotib oladi va nega qaytadi — " +
+          "shu yo'lning har bosqichi tekshiriladi."
+        : "Xodim sizga qanday keladi, qanday o'rganadi va nega qoladi — " +
+          "shu yo'lning har bosqichi tekshiriladi."));
+    if (bank) {
+      ich.appendChild(h("div.izoh", { style: "margin-bottom:14px" },
+        bank.soni + " savol · " + bank.bosqich + " bosqich"));
+    }
+    ich.appendChild(h("button.tug.asosiy", { type: "button",
+      onclick: function () { tzDiagBoshlaOyna(d, tur); } }, "Boshlash"));
+    return k;
+  }
+
+  const o = x.olcham || {};
+  if (x.holat === "toldirilmoqda") {
+    ich.appendChild(h("div.izoh", { style: "margin-top:4px" },
+      "To'ldirilmoqda — " + o.javobli + " / " + o.jami + " savol"));
+    ich.appendChild(h("div.tz-chiz", { html: '<i style="width:' +
+      (o.progress || 0) + '%"></i>' }));
+    ich.appendChild(h("div.izoh", (o.progress || 0) + "% javob berildi"));
+    ich.appendChild(h("div.qator.orash", { style: "margin-top:14px" },
+      h("button.tug.asosiy", { type: "button",
+        onclick: function () { diagOch(x.id); } }, "Davom ettirish"),
+      h("button.tug", { type: "button", disabled: o.javobli ? null : "",
+        onclick: function (e) { tzDiagYakunla(x, e.target); } }, "✓ Yakunlash"),
+      h("button.tug.shaffof.osdi", { type: "button",
+        onclick: function () { tzDiagBekorOyna(x); } }, "Bekor")));
+    return k;
+  }
+
+  if (x.holat === "xulosa_kutilmoqda") {
+    ich.appendChild(h("div.jonli", { style: "margin-top:10px" },
+      h("div.aylanma"), h("span", "Xulosa tayyorlanmoqda...")));
+    ich.appendChild(h("div.izoh", { style: "margin-top:8px;line-height:1.7" },
+      "Ustoz javoblaringizni ko'rib chiqib, eng og'riqli joylarni va har " +
+      "biriga birinchi qadamni yozyapti."));
+    return k;
+  }
+
+  /* tayyor */
+  ich.appendChild(h("div.tz-raqam", { style: "margin-top:8px" },
+    h("span.k", (x.foiz || 0) + "%"),
+    h("span.t", "tizimlashtirilgan")));
+  ich.appendChild(h("div.tz-chiz" + ((x.foiz || 0) >= 60 ? ".yashil" : ""),
+    { html: '<i style="width:' + (x.foiz || 0) + '%"></i>' }));
+  if (o.sifat_ortacha) {
+    ich.appendChild(h("div.izoh", { style: "margin-top:6px" },
+      "«Ha» javoblar sifati: " + o.sifat_ortacha + " / 3"));
+  }
+  if ((o.bosqichlar || []).length) ich.appendChild(tzBosqichlar(o));
+  ich.appendChild(h("div.qator.orash", { style: "margin-top:14px" },
+    h("button.tug", { type: "button", onclick: function () { diagOch(x.id); } },
+      "Javoblarni ko'rish"),
+    h("button.tug.shaffof.osdi", { type: "button",
+      onclick: function () { tzDiagBoshlaOyna(d, tur); } },
+      "↻ Qayta o'tkazish")));
+  return k;
+}
+
+function tzBosqichlar(o) {
+  const quti = h("div", { style: "margin-top:14px" });
+  quti.appendChild(h("div.yorliq-k", "Bosqichlar kesimida"));
+  o.bosqichlar.slice().sort(function (a, b) { return a.foiz - b.foiz; })
+    .forEach(function (b) {
+      quti.appendChild(h("div", { style: "margin-top:9px" },
+        h("div.qator", h("span", { style: "font-size:13.5px" }, b.bosqich),
+          h("span.izoh.osdi", b.foiz + "% · " + b.ha + "/" + b.jami)),
+        h("div.tz-chiz.mayda" + (b.foiz >= 60 ? ".yashil" : ""),
+          { html: '<i style="width:' + b.foiz + '%"></i>' })));
+    });
+  return quti;
+}
+
+function tzXulosaChiz(x, el) {
+  const xu = x.xulosa || {};
+  if (!xu.matn && !(xu.bandlar || []).length) return;
+  el.appendChild(h("div.bolim-bosh", h("h2", "Xulosa"),
+    h("span.izoh.osdi", ((TIZIM.tur_nom || {})[x.tur] || x.tur))));
+  if (xu.matn) {
+    el.appendChild(h("div.karta.bolim-oraliq", h("div.karta-ich",
+      h("div", { style: "line-height:1.75" }, xu.matn),
+      xu.qamrov != null && xu.qamrov < 0.4
+        ? h("div.izoh", { style: "margin-top:10px" },
+            "Bandlarning ko'pi ustoz materialidan tashqarida — umumiy tavsiya.")
+        : null)));
+  }
+  (xu.bandlar || []).forEach(function (b) {
+    el.appendChild(h("div.fikr-k" + (b.umumiy ? ".taklif-f" : ".xato-f"),
+      h("div.bosh", b.savol),
+      b.nega_muhim ? h("div.qism", b.nega_muhim) : null,
+      b.birinchi_qadam
+        ? h("div.qism", h("b", "Birinchi qadam: "), b.birinchi_qadam) : null,
+      b.umumiy ? h("div.izoh", { style: "margin-top:6px" },
+        "· ustoz materialiga tayanmaydi — umumiy tavsiya") : null));
+  });
+}
+
+function tzDiagBoshlaOyna(d, tur) {
+  const nom = (d.tur_nom || {})[tur] || tur.toUpperCase();
+  const korxona = h("input", { type: "text", maxlength: "120",
+    value: (d.maqsad && d.maqsad.korxona) || "",
+    placeholder: "Masalan: «Baraka» savdo markazi",
+    "aria-label": "Korxona nomi" });
+  const onlayn = h("input", { type: "checkbox", id: "tz-onlayn" });
+  const tan = h("div",
+    h("div.izoh", { style: "margin-bottom:14px;line-height:1.7" },
+      "Har savolga «Ha», «Qisman» yoki «Yo'q» deb javob berasiz. Javoblar " +
+      "darhol saqlanadi — istalgan payt to'xtab, keyin davom ettirsangiz " +
+      "bo'ladi."),
+    h("div.maydon-guruh", h("label.yorliq", "Korxona nomi"), korxona));
+  if (tur === "cjm") {
+    tan.appendChild(h("div.qator", { style: "margin-bottom:6px" }, onlayn,
+      h("label", { for: "tz-onlayn", style: "cursor:pointer" },
+        "Biznes faqat onlayn (jismoniy do'kon yo'q)")));
+    tan.appendChild(h("div.izoh",
+      "Belgilansa, do'kon muhitiga oid savollar chiqmaydi."));
+  }
+  const oyna = modal({ sarlavha: nom + " diagnostikasi", tan: tan, amallar: [
+    { nom: "Bekor", uslub: "shaffof" },
+    { nom: "Boshlash", uslub: "asosiy", yopmasin: true,
+      onclick: async function () {
+        try {
+          const r = await api.yubor("/api/tizim/diagnostika", {
+            twin_id: tzTwin(), tur: tur, korxona: korxona.value.trim(),
+            onlayn: onlayn.checked });
+          oyna.yop();
+          diagOch(r.diagnostika.id);
+        } catch (e) {
+          if (e && e.kod === 409) {
+            toast("Tugallanmagan diagnostika bor — avval uni yakunlang", "xato");
+            oyna.yop(); tizimOch(true); return false;
+          }
+          tzXato(e);
+        }
+        return false;
+      } },
+  ] });
+}
+
+async function tzDiagYakunla(x, tugma) {
+  const o = x.olcham || {};
+  const javobsiz = (o.jami || 0) - (o.javobli || 0);
+  const ok = await UI.tasdiq({
+    sarlavha: "Diagnostikani yakunlash",
+    matn: javobsiz > 0
+      ? javobsiz + " ta savol javobsiz qoldi. Javobsiz savol «yo'q» kabi " +
+        "hisoblanadi va foizni pasaytiradi. Baribir yakunlaymizmi?"
+      : "Javoblar yopiladi va ustoz xulosa tayyorlaydi. Davom etamizmi?",
+    tasdiq: "Ha, yakunlansin" });
+  if (!ok) return;
+  if (tugma) tugma.disabled = true;
+  try {
+    await api.yubor("/api/tizim/diagnostika/yakunla", { diagnostika_id: x.id });
+    toast("Xulosa tayyorlanmoqda...", "ok");
+    tizimOch(true);
+  } catch (e) { if (tugma) tugma.disabled = false; tzXato(e); }
+}
+
+function tzDiagBekorOyna(x) {
+  modal({ sarlavha: "Diagnostikani bekor qilish", tan: h("div",
+    { style: "line-height:1.75" },
+    "Belgilangan javoblar saqlanib qoladi, lekin bu diagnostika yopiladi " +
+    "va foizga kirmaydi. Keyin yangisini boshlashingiz mumkin."),
+    amallar: [
+      { nom: "Davom etaman", uslub: "shaffof" },
+      { nom: "Bekor qilaman", uslub: "xavf", yopmasin: true,
+        onclick: async function (e, b) {
+          try {
+            await api.yubor("/api/tizim/diagnostika/bekor",
+                            { diagnostika_id: x.id });
+            b.yop(); tizimOch(true);
+          } catch (x2) { tzXato(x2); }
+          return false;
+        } },
+    ] });
+}
+
+/* --- 2-qadam: MAQSAD ---------------------------------------------------- */
+function tizimMaqsad(d, el) {
+  const m = d.maqsad;
+  const dg = d.diagnostikalar || {};
+  const tayyorlar = Object.keys(dg).map(function (k) { return dg[k]; })
+    .filter(function (x) { return x && x.holat === "tayyor"; });
+
+  if (tayyorlar.length && !m) tzXulosaChiz(tayyorlar[0], el);
+
+  el.appendChild(h("div.bolim-bosh", h("h2", "2. Maqsad"),
+    h("span.izoh.osdi", "SMART metodi")));
+
+  if (!m) {
+    if (!tayyorlar.length) {
+      el.appendChild(h("div.karta.bolim-oraliq", h("div.karta-ich",
+        h("div.izoh", { style: "line-height:1.75" },
+          "Maqsad diagnostikadan o'sib chiqadi: avval CJM yoki EJM " +
+          "cheklistini yakunlang, keyin ustoz eng og'riqli joyga qaratilgan " +
+          "maqsad qo'yishga yordam beradi."))));
+      return;
+    }
+    el.appendChild(h("div.karta.bolim-oraliq", h("div.karta-ich",
+      h("div", { style: "line-height:1.75" },
+        "Diagnostika tayyor. Endi ustoz bilan suhbatda maqsadni SMART " +
+        "mezonlariga solamiz: aniq son, o'lchov, muddat, byudjet va " +
+        "diagnostikadagi qaysi zaif bosqichni tuzatishi."),
+      h("div.qator.orash", { style: "margin-top:16px" },
+        tayyorlar.map(function (x) {
+          return h("button.tug.asosiy", { type: "button",
+            onclick: function (e) { tzMaqsadBoshla(e.target, x.id); } },
+            ((d.tur_nom || {})[x.tur] || x.tur) + " asosida maqsad qo'yish");
+        })))));
+    return;
+  }
+
+  const smart = m.smart || {};
+  const t = m.tafsilot || {};
+  const karta = h("div.karta.bolim-oraliq"), ich = h("div.karta-ich");
+  karta.appendChild(ich);
+  ich.appendChild(h("h3", m.sarlavha || "Biznes maqsadi"));
+  if (t.matn) ich.appendChild(h("div", { style: "margin-top:6px;line-height:1.7" },
+    t.matn));
+  ich.appendChild(tzKartaKorinish(t));
+  ich.appendChild(tzSmartRoyxat(smart));
+
+  const amallar = h("div.qator.orash", { style: "margin-top:18px" });
+  if (m.holat === "intervyu" || m.holat === "tekshirildi") {
+    amallar.appendChild(h("button.tug", { type: "button",
+      onclick: function () { tzMaqsadSuhbat(m); } },
+      t.matn ? "💬 Suhbatni davom ettirish" : "💬 Ustoz bilan gaplashish"));
+    amallar.appendChild(h("button.tug", { type: "button",
+      onclick: function (e) { tzXulosaSora(m, e.target); } },
+      "✎ Suhbatdan xulosa"));
+    amallar.appendChild(h("button.tug", { type: "button",
+      onclick: function () { tzKartaOyna(d, m); } }, "Kartani to'ldirish"));
+  }
+  if (m.holat === "tekshirildi") {
+    amallar.appendChild(h("button.tug.asosiy", { type: "button",
+      onclick: function (e) { tzMaqsadTasdiqla(m, e.target); } },
+      "✓ Tasdiqlayman — rejalar tuzilsin"));
+  }
+  amallar.appendChild(h("button.tug.shaffof.osdi", { type: "button",
+    onclick: function () { tzMaqsadBekorOyna(m); } },
+    m.holat === "faol" ? "Maqsaddan voz kechish" : "Bekor qilish"));
+  ich.appendChild(amallar);
+  el.appendChild(karta);
+}
+
+function tzKartaKorinish(t) {
+  const quti = h("div");
+  const o = t.olchov || {};
+  if (o.birlik && (o.qiymat || o.hozir)) {
+    quti.appendChild(_kartaBlok("O'lchov",
+      tzSon(o.hozir) + " → " + tzSon(o.qiymat) + " " + o.birlik));
+  }
+  if (t.muddat) quti.appendChild(_kartaBlok("Muddat", t.muddat));
+  if (t.byudjet) quti.appendChild(_kartaBlok("Byudjet", tzSon(t.byudjet)));
+  if (t.resurs) quti.appendChild(_kartaBlok("Mavjud resurs", t.resurs));
+  if ((t.bosqichlar || []).length) {
+    quti.appendChild(_kartaBlok("Qaysi bosqichni tuzatadi",
+      t.bosqichlar.join(", ")));
+  }
+  return quti;
+}
+
+function tzSmartRoyxat(smart) {
+  const quti = h("div", { style: "margin-top:16px" });
+  quti.appendChild(h("div.yorliq-k", "SMART mezonlari (server tekshiruvi)"));
+  Object.keys(SMART_NOM).forEach(function (k) {
+    const v = smart[k] || { ok: false, izoh: "" };
+    quti.appendChild(h("div.ish-q",
+      h("span.ish-belgi" + (v.ok ? ".bajarildi" : ""), { "aria-hidden": "true" },
+        v.ok ? "✓" : ""),
+      h("div.ich", h("div.nm", SMART_NOM[k]),
+        v.ok ? null : h("div.izoh", v.izoh))));
+  });
+  return quti;
+}
+
+async function tzMaqsadBoshla(tugma, did) {
+  if (tugma) tugma.disabled = true;
+  try {
+    const r = await api.yubor("/api/tizim/maqsad/boshla", {
+      twin_id: tzTwin(), diagnostika_id: did || null });
+    const s = await api.yubor("/api/tizim/maqsad/suhbat",
+                              { maqsad_id: r.maqsad_id });
+    await tzSuhbatOch(s);
+  } catch (e) {
+    if (tugma) tugma.disabled = false;
+    if (e && e.kod === 409) { toast("Tugallanmagan maqsad bor", "xato");
+      tizimOch(true); return; }
+    tzXato(e);
+  }
+}
+
+async function tzMaqsadSuhbat(m) {
+  try {
+    const r = await api.yubor("/api/tizim/maqsad/suhbat", { maqsad_id: m.id });
+    await tzSuhbatOch(r);
+  } catch (e) { tzXato(e); }
+}
+
+/** Maqsad suhbatini chat ekranida ochadi (dars/maqsad naqshi bilan bir xil). */
+async function tzSuhbatOch(r) {
+  $$(".parda").forEach(function (p) { p.remove(); });
+  document.body.style.overflow = "";
+  tzTaymerToxtat();
+  await suhbatlarYangila();
+  await suhbatOch(r.suhbat_id);
+  if (r.yangi !== false) yubor(null, { matn: r.boshlash, yashirin: true });
+}
+
+async function tzXulosaSora(m, tugma) {
+  if (tugma) { tugma.disabled = true; tugma.textContent = "Tayyorlanmoqda..."; }
+  try {
+    await api.yubor("/api/tizim/maqsad/xulosa", { maqsad_id: m.id });
+    toast("Karta to'ldirildi — tekshirib chiqing", "ok");
+    tizimOch(true);
+  } catch (e) {
+    if (tugma) { tugma.disabled = false; tugma.textContent = "✎ Suhbatdan xulosa"; }
+    tzXato(e);
+  }
+}
+
+/** SMART kartani qo'lda to'ldirish. Bahoni baribir SERVER qo'yadi. */
+function tzKartaOyna(d, m) {
+  const t = m.tafsilot || {};
+  const o = t.olchov || {};
+  const matn = h("textarea", { style: "min-height:70px", maxlength: "1000" });
+  matn.value = t.matn || "";
+  const birlik = h("input", { type: "text", maxlength: "40", value: o.birlik || "",
+    placeholder: "mln so'm, dona, mijoz..." });
+  const hozir = h("input", { type: "text", inputmode: "decimal",
+    value: o.hozir ? String(o.hozir) : "" });
+  const qiymat = h("input", { type: "text", inputmode: "decimal",
+    value: o.qiymat ? String(o.qiymat) : "" });
+  const muddat = h("input", { type: "date", value: (t.muddat || "").slice(0, 10) });
+  const byudjet = h("input", { type: "text", inputmode: "decimal",
+    value: t.byudjet ? String(t.byudjet) : "" });
+  const resurs = h("textarea", { style: "min-height:60px", maxlength: "600",
+    placeholder: "Jamoa, vosita, kanal — hozir nima bor?" });
+  resurs.value = t.resurs || "";
+
+  /* Bosqichlar — faqat SERVER bergan ro'yxatdan (diagnostika bosqichlari). */
+  const dg = d.diagnostikalar || {};
+  let manba = null;
+  Object.keys(dg).forEach(function (k) {
+    if (dg[k] && dg[k].id === m.diagnostika_id) manba = dg[k];
+  });
+  const nomlar = ((manba && manba.olcham && manba.olcham.bosqichlar) || [])
+    .slice().sort(function (a, b) { return a.foiz - b.foiz; });
+  const tanlangan = new Set(t.bosqichlar || []);
+  const bosqichQuti = h("div.qator.orash");
+  nomlar.forEach(function (b) {
+    const tug = h("button.tug.kichik-t" + (tanlangan.has(b.bosqich) ? ".asosiy" : ""),
+      { type: "button", onclick: function () {
+        if (tanlangan.has(b.bosqich)) { tanlangan.delete(b.bosqich); tug.classList.remove("asosiy"); }
+        else if (tanlangan.size >= 6) { toast("Ko'pi bilan 6 ta", "xato"); }
+        else { tanlangan.add(b.bosqich); tug.classList.add("asosiy"); }
+      } }, b.bosqich + " · " + b.foiz + "%");
+    bosqichQuti.appendChild(tug);
+  });
+
+  const tan = h("div",
+    h("div.maydon-guruh", h("label.yorliq", "Maqsad (son bilan)"), matn),
+    h("div.qator.orash",
+      h("div.maydon-guruh", { style: "flex:1;min-width:150px" },
+        h("label.yorliq", "O'lchov birligi"), birlik),
+      h("div.maydon-guruh", { style: "flex:1;min-width:110px" },
+        h("label.yorliq", "Hozir"), hozir),
+      h("div.maydon-guruh", { style: "flex:1;min-width:110px" },
+        h("label.yorliq", "Maqsad"), qiymat)),
+    h("div.qator.orash",
+      h("div.maydon-guruh", { style: "flex:1;min-width:160px" },
+        h("label.yorliq", "Muddat"), muddat),
+      h("div.maydon-guruh", { style: "flex:1;min-width:160px" },
+        h("label.yorliq", "Byudjet"), byudjet)),
+    h("div.maydon-guruh", h("label.yorliq", "Mavjud resurs"), resurs),
+    nomlar.length ? h("div.maydon-guruh",
+      h("label.yorliq", "Qaysi zaif bosqichni tuzatadi"), bosqichQuti) : null);
+
+  const oyna = modal({ sarlavha: "SMART karta", tan: tan, keng: true, amallar: [
+    { nom: "Bekor", uslub: "shaffof" },
+    { nom: "Saqlash", uslub: "asosiy", yopmasin: true, onclick: async function () {
+        try {
+          await api.yubor("/api/tizim/maqsad/saqla", {
+            maqsad_id: m.id,
+            tafsilot: {
+              matn: matn.value.trim(),
+              olchov: { birlik: birlik.value.trim(), qiymat: qiymat.value,
+                        hozir: hozir.value },
+              muddat: muddat.value, byudjet: byudjet.value,
+              resurs: resurs.value.trim(),
+              bosqichlar: Array.from(tanlangan),
+            } });
+          oyna.yop(); tizimOch(true);
+        } catch (e) { tzXato(e); }
+        return false;
+      } },
+  ] });
+}
+
+async function tzMaqsadTasdiqla(m, tugma) {
+  if (tugma) tugma.disabled = true;
+  try {
+    await api.yubor("/api/tizim/maqsad/tasdiqla", { maqsad_id: m.id });
+    toast("Bo'lim rejalari tuzilmoqda...", "ok");
+    tizimOch(true);
+  } catch (e) {
+    if (tugma) tugma.disabled = false;
+    if (e && e.kod === 409) {
+      toast("SMART mezonlari to'liq emas — qizil bandlarni to'ldiring", "xato");
+      tizimOch(true); return;
+    }
+    tzXato(e);
+  }
+}
+
+function tzMaqsadBekorOyna(m) {
+  modal({ sarlavha: "Maqsaddan voz kechish", tan: h("div",
+    { style: "line-height:1.75" },
+    "«" + (m.sarlavha || "Biznes maqsadi") + "» yopiladi. Tuzilgan " +
+    "rejalar tarixda qoladi, lekin yangi maqsad qo'yish mumkin bo'ladi."),
+    amallar: [
+      { nom: "Davom etaman", uslub: "shaffof" },
+      { nom: "Voz kechaman", uslub: "xavf", yopmasin: true,
+        onclick: async function (e, b) {
+          try {
+            await api.yubor("/api/tizim/maqsad/bekor", { maqsad_id: m.id });
+            b.yop(); toast("Maqsad yopildi", "ok"); tizimOch(true);
+          } catch (x) { tzXato(x); }
+          return false;
+        } },
+    ] });
+}
+
+/* --- 3-qadam: REJALASHTIRISH -------------------------------------------- */
+function tizimRejalar(d, el) {
+  const rejalar = {};
+  (d.rejalar || []).forEach(function (r) { rejalar[r.bolim] = r; });
+  const bor = (d.rejalar || []).length;
+  el.appendChild(h("div.bolim-bosh", h("h2", "3. Rejalashtirish"),
+    h("span.izoh.osdi", bor + " / " + (d.bolimlar || []).length + " bo'lim")));
+  const quti = h("div.tz-kartalar.bolim-oraliq");
+  (d.bolimlar || []).forEach(function (b) {
+    quti.appendChild(tzRejaKarta(d, b, rejalar[b.kod]));
+  });
+  el.appendChild(quti);
+}
+
+function tzRejaKarta(d, b, r) {
+  const k = h("div.karta"), ich = h("div.karta-ich");
+  k.appendChild(ich);
+  ich.appendChild(h("div.qator",
+    h("h3", { style: "flex:1;min-width:0" }, b.nom),
+    r && r.holat === "tasdiqlangan"
+      ? h("span.belgi.yashil-b", "tasdiqlangan") : null));
+  ich.appendChild(h("div.izoh", { style: "margin-top:3px" },
+    b.quroli + " — " + b.izoh));
+
+  if (!r) {
+    ich.appendChild(h("div.jonli", { style: "margin-top:14px" },
+      h("div.aylanma"), h("span", "Tayyorlanmoqda...")));
+    return k;
+  }
+
+  if (r.sarlavha) ich.appendChild(h("div", { style: "margin-top:12px;font-weight:600" },
+    r.sarlavha));
+  if (r.izoh) ich.appendChild(h("div.izoh", { style: "margin-top:5px;line-height:1.7" },
+    r.izoh));
+  if (r.umumiy) {
+    ich.appendChild(h("div.fikr-k.taklif-f", { style: "margin-top:12px" },
+      h("div.bosh", "Umumiy tavsiya"),
+      "Bu reja ustozning yuklangan darslarida yoritilmagan — umumiy bilimga " +
+      "tayanadi."));
+  }
+  ich.appendChild(tzJadvalKorinish(d, r, 6));
+  ich.appendChild(tzJamiChiz(d, r));
+  ich.appendChild(h("div.qator.orash", { style: "margin-top:14px" },
+    h("button.tug", { type: "button", onclick: function () { tzRejaOyna(d, r); } },
+      "✎ Tahrirlash"),
+    r.holat === "qoralama"
+      ? h("button.tug.asosiy", { type: "button",
+          onclick: function (e) { tzRejaTasdiqla(r, e.target); } }, "✓ Tasdiqlash")
+      : null,
+    h("button.tug.shaffof.osdi", { type: "button", title: "Qaytadan qurish",
+      onclick: function (e) { tzRejaQayta(d.maqsad, b.kod, e.target); } }, "↻")));
+  return k;
+}
+
+function tzJadvalKorinish(d, r, chegara) {
+  const maydonlar = (d.maydonlar || {})[r.tur] || [];
+  const nom = d.maydon_nom || {};
+  const raqamli = new Set(d.raqamli || []);
+  const qatorlar = (r.jadval || []).slice(0, chegara || 100);
+  const hisobiy = (d.hisobiy || []).filter(function (x) {
+    return (r.jadval || []).some(function (q) { return q[x] != null; }); });
+  const ustunlar = maydonlar.concat(hisobiy);
+
+  if (!qatorlar.length) {
+    return h("div.izoh", { style: "margin-top:12px" }, "Jadval bo'sh.");
+  }
+  const jadval = h("table.tz-jadval");
+  const bosh = h("tr");
+  ustunlar.forEach(function (m) {
+    bosh.appendChild(h("th" + (raqamli.has(m) || m === "qoldiq" ? ".son" : ""),
+      nom[m] || m));
+  });
+  jadval.appendChild(h("thead", bosh));
+  const tan = h("tbody");
+  qatorlar.forEach(function (q) {
+    const tr = h("tr");
+    ustunlar.forEach(function (m) {
+      const son = raqamli.has(m) || m === "qoldiq";
+      const qiymat = q[m];
+      const sinf = "td" + (son ? ".son" : "") +
+        (m === "qoldiq" ? ".hisobiy" : "") +
+        (m === "qoldiq" && Number(qiymat) < 0 ? ".manfiy" : "");
+      tr.appendChild(h(sinf, son ? tzSon(qiymat) : (qiymat || "—")));
+    });
+    tan.appendChild(tr);
+  });
+  jadval.appendChild(tan);
+  const quti = h("div.tz-jadval-o", { style: "margin-top:12px" }, jadval);
+  if ((r.jadval || []).length > qatorlar.length) {
+    quti.appendChild(h("div.izoh", { style: "margin-top:6px" },
+      "yana " + ((r.jadval || []).length - qatorlar.length) + " qator..."));
+  }
+  return quti;
+}
+
+function tzJamiChiz(d, r) {
+  const nom = d.jami_nom || {};
+  const quti = h("div.tz-jami");
+  Object.keys(r.jami || {}).forEach(function (k) {
+    const v = r.jami[k];
+    quti.appendChild(h("div.qm", h("span.izoh", (nom[k] || k) + ": "),
+      h("b", typeof v === "number" ? tzSon(v) : String(v || "—"))));
+  });
+  return quti;
+}
+
+/** Jadval tahriri. Yig'indini baribir SERVER qayta hisoblaydi. */
+function tzRejaOyna(d, r) {
+  const maydonlar = (d.maydonlar || {})[r.tur] || [];
+  const nomlar = d.maydon_nom || {};
+  const raqamli = new Set(d.raqamli || []);
+  const maks = d.maks_qator || 36;
+  const qatorlar = (r.jadval || []).map(function (q) { return Object.assign({}, q); });
+
+  const sarlavha = h("input", { type: "text", maxlength: "160",
+    value: r.sarlavha || "" });
+  const izoh = h("textarea", { style: "min-height:60px", maxlength: "600" });
+  izoh.value = r.izoh || "";
+  const tanaEl = h("tbody");
+  const jadval = h("table.tz-jadval");
+  const bosh = h("tr");
+  maydonlar.forEach(function (m) {
+    bosh.appendChild(h("th" + (raqamli.has(m) ? ".son" : ""), nomlar[m] || m));
+  });
+  bosh.appendChild(h("th", ""));
+  jadval.appendChild(h("thead", bosh));
+  jadval.appendChild(tanaEl);
+
+  function qatorChiz() {
+    tanaEl.innerHTML = "";
+    qatorlar.forEach(function (q, i) {
+      const tr = h("tr");
+      maydonlar.forEach(function (m) {
+        const kirit = h("input", { type: "text",
+          inputmode: raqamli.has(m) ? "decimal" : null,
+          value: q[m] == null ? "" : String(q[m]),
+          "aria-label": nomlar[m] || m });
+        kirit.addEventListener("input", function () { q[m] = kirit.value; });
+        tr.appendChild(h("td" + (raqamli.has(m) ? ".son" : ""), kirit));
+      });
+      tr.appendChild(h("td", h("button.tug-ikon", { type: "button",
+        title: "Qatorni o'chirish", "aria-label": "Qatorni o'chirish",
+        onclick: function () { qatorlar.splice(i, 1); qatorChiz(); } }, "✕")));
+      tanaEl.appendChild(tr);
+    });
+  }
+  qatorChiz();
+
+  const qoshTug = h("button.tug.kichik-t", { type: "button", onclick: function () {
+    if (qatorlar.length >= maks) { toast("Ko'pi bilan " + maks + " qator", "xato"); return; }
+    const yangi = {};
+    maydonlar.forEach(function (m) { yangi[m] = ""; });
+    qatorlar.push(yangi); qatorChiz();
+  } }, "✚ Qator qo'shish");
+
+  const tan = h("div",
+    h("div.maydon-guruh", h("label.yorliq", "Sarlavha"), sarlavha),
+    h("div.maydon-guruh", h("label.yorliq", "Izoh"), izoh),
+    h("div.tz-jadval-o", jadval),
+    h("div.qator", { style: "margin-top:10px" }, qoshTug),
+    h("div.izoh", { style: "margin-top:10px" },
+      "Yig'indi va qoldiq server tomonida qayta hisoblanadi."));
+
+  const oyna = modal({ sarlavha: r.sarlavha || "Reja", tan: tan, keng: true,
+    amallar: [
+      { nom: "Bekor", uslub: "shaffof" },
+      { nom: "Saqlash", uslub: "asosiy", yopmasin: true, onclick: async function () {
+          try {
+            await api.yangila("/api/tizim/reja/" + r.id, {
+              qatorlar: qatorlar, sarlavha: sarlavha.value.trim(),
+              izoh: izoh.value.trim() });
+            oyna.yop(); tizimOch(true);
+          } catch (e) { tzXato(e); }
+          return false;
+        } },
+    ] });
+}
+
+async function tzRejaTasdiqla(r, tugma) {
+  if (tugma) tugma.disabled = true;
+  try {
+    await api.yubor("/api/tizim/reja/" + r.id + "/tasdiqla", {});
+    toast(r.tur === "ssp"
+      ? "Tasdiqlandi — to'lovlar moliya modeliga ko'chirildi"
+      : "Tasdiqlandi", "ok");
+    tizimOch(true);
+  } catch (e) { if (tugma) tugma.disabled = false; tzXato(e); }
+}
+
+async function tzRejaQayta(m, bolim, tugma) {
+  if (!m) return;
+  if (tugma) tugma.disabled = true;
+  try {
+    await api.yubor("/api/tizim/reja/qayta", { maqsad_id: m.id, bolim: bolim });
+    toast("Qaytadan qurilmoqda...", "ok");
+    tizimOch(true);
+  } catch (e) { if (tugma) tugma.disabled = false; tzXato(e); }
+}
+
+/* --- tarix -------------------------------------------------------------- */
+function tizimTarix(d, el) {
+  el.appendChild(h("div.bolim-bosh", { style: "margin-top:30px" },
+    h("h2", "Oldingi diagnostikalar")));
+  const quti = h("div.karta.modul-k");
+  (d.tarix || []).forEach(function (t) {
+    const qator = h("div.mavzu-q",
+      h("span.kv" + (t.holat === "tayyor" ? ".tugadi-k" : ".otildi-k"),
+        t.holat === "tayyor" ? "✓" : "×"),
+      h("span.ich",
+        h("span.nm", ((d.tur_nom || {})[t.tur] || t.tur) +
+          (t.korxona ? " · " + t.korxona : "")),
+        h("span.tv", (t.holat === "tayyor"
+          ? "Yakunlandi — " + (t.foiz || 0) + "%" : "Bekor qilingan") +
+          (t.tugallangan ? " · " + UI.vaqt(t.tugallangan) : ""))));
+    qator.style.cursor = "pointer";
+    qator.addEventListener("click", function () { diagOch(t.id); });
+    quti.appendChild(qator);
+  });
+  el.appendChild(quti);
+}
+
+/* --- diagnostika cheklisti ---------------------------------------------- */
+function diagOch(did, manzilsiz) {
+  JORIY = null;
+  tzTaymerToxtat();
+  if (!manzilsiz && location.hash !== "#/tizim/d/" + did) {
+    location.hash = "#/tizim/d/" + did;
+  }
+  ekran("tizim");
+  $("#bosh-sarlavha").textContent = "Diagnostika";
+  tarixChiz();
+  yon.yop();
+  return UI.holat.yur($("#tizim-tan"), function () {
+    return api.ol("/api/tizim/savollar?diagnostika_id=" + did);
+  }, diagChiz, { yuklanmoqda: "Savollar yuklanmoqda...",
+                 boshmi: function () { return false; } });
+}
+
+function diagChiz(j, el) {
+  DIAG = {
+    id: j.diagnostika.id, d: j.diagnostika, savollar: j.savollar,
+    javoblar: j.javoblar || {}, olcham: j.olcham || {}, sifat: j.sifat || {},
+    el: {}, bosqichEl: {},
+    tahrir: j.diagnostika.holat === "toldirilmoqda",
+  };
+  DIAG_FILTR = false;
+  el.appendChild(tzPanel());
+  const royxat = h("div");
+  DIAG.royxat = royxat;
+  el.appendChild(royxat);
+  tzRoyxatChiz();
+}
+
+function tzPanel() {
+  const d = DIAG.d;
+  const nom = ((TIZIM && TIZIM.tur_nom) || {})[d.tur] ||
+              (d.tur === "cjm" ? "Mijoz yo'li (CJM)" : "Xodim yo'li (EJM)");
+  const panel = h("div.tz-panel");
+  panel.appendChild(h("div.qator.orash",
+    h("button.tug.shaffof.kichik-t", { type: "button",
+      onclick: function () { tizimOch(); } }, "‹ Bo'limga"),
+    h("div", { style: "flex:1;min-width:140px;font-weight:600" },
+      nom + (d.korxona ? " · " + d.korxona : "")),
+    DIAG.tahrir
+      ? h("button.tug.asosiy.kichik-t", { type: "button",
+          onclick: function (e) { tzDiagYakunla({ id: DIAG.id, olcham: DIAG.olcham },
+                                                e.target); } }, "✓ Yakunlash")
+      : h("span.belgi", "yopilgan")));
+
+  const raqam = h("div.qator.orash", { style: "margin-top:10px" });
+  DIAG.foizEl = h("span.k", (DIAG.olcham.foiz || 0) + "%");
+  DIAG.sanoqEl = h("span.t", "");
+  raqam.appendChild(h("div.tz-raqam", DIAG.foizEl, h("span.t", "tizimlashtirilgan")));
+  raqam.appendChild(h("div.osdi", DIAG.sanoqEl));
+  panel.appendChild(raqam);
+  DIAG.chizEl = h("i");
+  panel.appendChild(h("div.tz-chiz", DIAG.chizEl));
+
+  const filtr = h("button.tug.kichik-t", { type: "button", onclick: function () {
+    DIAG_FILTR = !DIAG_FILTR;
+    filtr.classList.toggle("asosiy", DIAG_FILTR);
+    filtr.textContent = DIAG_FILTR ? "✓ Faqat javobsizlar" : "Faqat javobsizlar";
+    tzRoyxatChiz();
+  } }, "Faqat javobsizlar");
+  panel.appendChild(h("div.qator.orash", { style: "margin-top:10px" }, filtr,
+    h("span.izoh", "Javob darhol saqlanadi")));
+  tzPanelYangila(panel);
+  return panel;
+}
+
+function tzPanelYangila() {
+  const o = DIAG.olcham || {};
+  if (DIAG.foizEl) DIAG.foizEl.textContent = (o.foiz || 0) + "%";
+  if (DIAG.chizEl) DIAG.chizEl.style.width = (o.progress || 0) + "%";
+  if (DIAG.sanoqEl) {
+    DIAG.sanoqEl.textContent = (o.javobli || 0) + " / " + (o.jami || 0) +
+      " javob · " + (o.ha || 0) + " ha · " + (o.qisman || 0) + " qisman";
+  }
+  (o.bosqichlar || []).forEach(function (b) {
+    const el = DIAG.bosqichEl[b.bosqich];
+    if (el) el.textContent = b.foiz + "% · " + b.javobli + "/" + b.jami;
+  });
+}
+
+function tzRoyxatChiz() {
+  const quti = DIAG.royxat;
+  quti.innerHTML = "";
+  DIAG.el = {}; DIAG.bosqichEl = {};
+
+  const bosqichlar = [];
+  const guruh = {};
+  DIAG.savollar.forEach(function (s) {
+    if (DIAG_FILTR && DIAG.javoblar[s.id]) return;
+    if (!guruh[s.bosqich]) { guruh[s.bosqich] = []; bosqichlar.push(s.bosqich); }
+    guruh[s.bosqich].push(s);
+  });
+
+  if (!bosqichlar.length) {
+    quti.appendChild(h("div.holat-quti", h("div.ikon", "✓"),
+      h("div.sarlavha", "Hamma savolga javob berilgan"),
+      h("div.tan", "Endi «Yakunlash» tugmasini bosing.")));
+    return;
+  }
+
+  const ochiq = bosqichlar.find(function (b) {
+    return guruh[b].some(function (s) { return !DIAG.javoblar[s.id]; });
+  });
+  const olcham = {};
+  (DIAG.olcham.bosqichlar || []).forEach(function (b) { olcham[b.bosqich] = b; });
+
+  bosqichlar.forEach(function (b) {
+    const yigma = h("details.tz-bosqich");
+    if (b === ochiq) yigma.setAttribute("open", "");
+    const o = olcham[b] || { foiz: 0, javobli: 0, jami: guruh[b].length };
+    const sanoq = h("span.osdi", o.foiz + "% · " + o.javobli + "/" + o.jami);
+    DIAG.bosqichEl[b] = sanoq;
+    yigma.appendChild(h("summary", h("span", b), sanoq));
+    const ich = h("div.tz-ich");
+    let blok = null;
+    guruh[b].forEach(function (s) {
+      if (s.blok !== blok) {
+        blok = s.blok;
+        ich.appendChild(h("div.tz-blok", blok));
+      }
+      const q = tzSavolQator(s);
+      DIAG.el[s.id] = q;
+      ich.appendChild(q);
+    });
+    yigma.appendChild(ich);
+    quti.appendChild(yigma);
+  });
+}
+
+function tzSavolQator(s) {
+  const j = DIAG.javoblar[s.id];
+  const qator = h("div.tz-s" + (j ? ".belgili" : ""));
+  qator.appendChild(h("div.mt", s.matn));
+
+  const tugmalar = h("div.tz-j");
+  TZ_JAVOB.forEach(function (v) {
+    tugmalar.appendChild(h("button." + v.kod +
+      (j && j.javob === v.kod ? ".tanlangan" : ""), {
+      type: "button", disabled: DIAG.tahrir ? null : "",
+      "aria-pressed": j && j.javob === v.kod ? "true" : "false",
+      onclick: function () { tzJavob(s, v.kod); } }, v.nom));
+  });
+  qator.appendChild(tugmalar);
+
+  if (j && j.javob === "ha") {
+    const sifat = h("div.tz-qosh");
+    sifat.appendChild(h("span.yorliq-k", "Qanday ishlaydi:"));
+    const s3 = h("div.tz-sifat.qator");
+    Object.keys(DIAG.sifat).forEach(function (n) {
+      s3.appendChild(h("button" + (String(j.sifat) === String(n) ? ".tanlangan" : ""),
+        { type: "button", title: DIAG.sifat[n],
+          disabled: DIAG.tahrir ? null : "",
+          onclick: function () { tzJavob(s, "ha", Number(n)); } }, n));
+    });
+    sifat.appendChild(s3);
+    sifat.appendChild(h("span.izoh", DIAG.sifat[j.sifat] || "1 — tartibsiz, 3 — o'lchanadi"));
+    qator.appendChild(sifat);
+  }
+
+  if (j && DIAG.tahrir) {
+    const izoh = h("input", { type: "text", maxlength: "500",
+      value: j.izoh || "", placeholder: "Izoh (ixtiyoriy)",
+      "aria-label": "Izoh" });
+    izoh.addEventListener("change", function () {
+      tzJavob(s, j.javob, j.sifat, izoh.value);
+    });
+    qator.appendChild(izoh);
+  }
+  return qator;
+}
+
+/** Bitta javob: optimistik chiziladi, foizni SERVER qaytaradi. */
+async function tzJavob(s, javob, sifat, izoh) {
+  if (!DIAG.tahrir) return;
+  const oldingi = DIAG.javoblar[s.id];
+  const yangi = {
+    javob: javob,
+    sifat: javob === "ha"
+      ? (sifat != null ? sifat : (oldingi ? oldingi.sifat : null)) : null,
+    izoh: izoh != null ? izoh : (oldingi ? oldingi.izoh : ""),
+  };
+  DIAG.javoblar[s.id] = yangi;
+  tzQatorYangila(s);
+  try {
+    const r = await api.yubor("/api/tizim/javob", {
+      diagnostika_id: DIAG.id, savol_id: s.id, javob: yangi.javob,
+      sifat: yangi.sifat, izoh: yangi.izoh || "" });
+    DIAG.olcham = r.olcham || DIAG.olcham;
+    tzPanelYangila();
+  } catch (e) {
+    if (oldingi) DIAG.javoblar[s.id] = oldingi;
+    else delete DIAG.javoblar[s.id];
+    tzQatorYangila(s);
+    tzXato(e);
+  }
+}
+
+function tzQatorYangila(s) {
+  const eski = DIAG.el[s.id];
+  if (!eski) return;
+  const yangi = tzSavolQator(s);
+  DIAG.el[s.id] = yangi;
+  eski.replaceWith(yangi);
+}
+
+/* --- tizim lentasi (suhbat biznes maqsadiga bog'langanda) --------------- */
+function tizimLenta(s) {
+  return h("div.dars-lenta",
+    h("span", { "aria-hidden": "true", style: "font-size:20px" }, "🏭"),
+    h("div.ich",
+      h("div.nom", String(s.sarlavha || "Biznes maqsadi")),
+      h("div.izoh", "Tizimlashtirish halqasi — SMART maqsad suhbati")),
+    h("button.tug.kichik-t", { type: "button",
+      onclick: function () { tizimOch(); } }, "Bo'limga"));
+}
+
 /* ====================================================== kirish ekrani */
 
 function maydon(nom, tur, autocomplete) {
@@ -2880,12 +3933,16 @@ function manzilYur() {
   const hash = location.hash || "";
   if (/^#\/mentor\b/.test(hash)) { mentorOch(true); return; }
   if (/^#\/maqsad\b/.test(hash)) { maqsadOch(true); return; }
+  const tz = hash.match(/^#\/tizim\/d\/(\d+)$/);
+  if (tz) { diagOch(parseInt(tz[1], 10), true); return; }
+  if (/^#\/tizim\b/.test(hash)) { tizimOch(true); return; }
   const m = hash.match(/^#\/s\/(\d+)$/);
   const sid = m ? parseInt(m[1], 10) : null;
   if (sid) { if (sid !== JORIY) suhbatOch(sid, true); }
   else if (JORIY !== null ||
            !$("#mentor-ekran").classList.contains("yashirin") ||
-           !$("#maqsad-ekran").classList.contains("yashirin")) {
+           !$("#maqsad-ekran").classList.contains("yashirin") ||
+           !$("#tizim-ekran").classList.contains("yashirin")) {
     boshSahna(true);
   }
 }
@@ -2902,6 +3959,7 @@ async function boshla() {
   await suhbatlarYangila();
   mentorYangila();                   // yon paneldagi «O'quv rejam» tugmasi uchun
   maqsadYangila();                   // «Maqsadim» tugmasi va belgisi uchun
+  tizimYangila();                    // «Biznes tizimi» tugmasi uchun
   manzilYur();                       // havola bilan kelgan bo'lsa — o'sha suhbat
   window.addEventListener("hashchange", manzilYur);
   const tolovId = new URLSearchParams(location.search).get("tolov");

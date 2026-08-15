@@ -51,12 +51,19 @@ REGISTR = {
                   "tuzadi va sikl yakunlanguncha fokusni o'sha maqsadda "
                   "ushlab turadi.",
     },
+    "tizim": {
+        "nom": "Tizimlashtirish halqasi",
+        "tur": "rejim",
+        "tavsif": "Biznes uchun: CJM/EJM diagnostikasi (926 savol) -> xulosa "
+                  "-> SMART maqsad -> bo'limlar kesimidagi rejalar (SSP, "
+                  "mediaplan, moliya modeli, xodim rejasi, Gantt).",
+    },
 }
 
 # Yozuv bo'lmasa amal qiladigan holat (hozirgi xulq saqlanadi:
 # shablon-fayl va diagramma ishlab turgan, test — yangi, so'ralganda yoqiladi).
 STANDART = {"diagramma": True, "shablon_fayl": True, "test": False,
-            "maqsad": True}
+            "maqsad": True, "tizim": True}
 
 
 def faollar(twin_id: int | None) -> dict[str, bool]:

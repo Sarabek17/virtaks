@@ -415,6 +415,7 @@ def suhbat_yasa(uid: int, twin_id: int | None, sarlavha: str) -> int:
 def suhbatlar(uid: int, arxiv: bool = False) -> list[dict]:
     return pg.hammasi_d(
         """SELECT s.id, s.sarlavha, s.twin_id, s.mavzu_id, s.maqsad_id,
+                  s.tizim_maqsad_id,
                   s.yaratilgan, s.yangilangan, t.nom AS twin_nom,
                   (SELECT count(*) FROM majlislar m WHERE m.suhbat_id = s.id) AS soni
            FROM suhbatlar s LEFT JOIN twinlar t ON t.id = s.twin_id

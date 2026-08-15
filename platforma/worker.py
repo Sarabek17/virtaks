@@ -120,6 +120,20 @@ def _maqsad_eslatma(job: dict, yoz):
     return maqsad.eslatma(job, yoz)
 
 
+@handler("tizim_xulosa")
+def _tizim_xulosa(job: dict, yoz):
+    """CJM/EJM diagnostikasi natijasidan xulosa (biznes halqasi, 1-qadam)."""
+    from . import tizim
+    return tizim.xulosa_qur(job, yoz)
+
+
+@handler("tizim_reja")
+def _tizim_reja(job: dict, yoz):
+    """Bitta bo'lim uchun reja qoralamasi: SSP, mediaplan, moliya modeli..."""
+    from . import tizim
+    return tizim.reja_qur(job, yoz)
+
+
 @handler("obuna_nazorat")
 def _obuna_nazorat(job: dict, yoz):
     """Muddati tugagan obunalarni yopadi va eslatma yuboradi (soatlik)."""
@@ -194,6 +208,14 @@ def _yakuniy_xato(job: dict, e: Exception):
                 maqsad.qaytar(int(mid))
             except Exception as x:                            # noqa: BLE001
                 log(f"maqsad qaytarilmadi: {str(x)[:100]}")
+    elif job["tur"] == "tizim_xulosa":
+        from . import tizim
+        did = (job.get("kirish") or {}).get("diagnostika_id")
+        if did:
+            try:
+                tizim.diag_qaytar(int(did))
+            except Exception as x:                            # noqa: BLE001
+                log(f"diagnostika qaytarilmadi: {str(x)[:100]}")
 
 
 def _bepulni_qaytar(job: dict):

@@ -27,6 +27,8 @@ QOIDA = {
     "mentor": (30, 60),            # reja/dars/test amallari
     "maqsad": (30, 60),            # sikl amallari (holat o'zgarishlari)
     "maqsad_llm": (10, 300),       # xulosa chiqarish — LLM chaqiradi
+    "diag_javob": (240, 60),       # diagnostika cheklisti: 926 savol tez
+                                   # belgilanadi, LLM chaqirilmaydi — keng oyna
     "vazifa": (10, 300),           # uy vazifasini topshirish (LLM tekshiradi)
     "kurs_qur": (3, 3600),         # kurs qurish — qimmat, egasi tashabbusi
     "tolov": (10, 60),             # to'lov yozuvi yaratish

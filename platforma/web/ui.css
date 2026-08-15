@@ -626,6 +626,122 @@ table.jadval td.amallar { white-space: nowrap; text-align: right; }
   .mq-foiz { font-size: 22px; }
 }
 
+/* ========================================================== tizimlashtirish
+   Biznes halqasi: diagnostika cheklisti, SMART karta, bo'lim jadvallari.
+   Maqsad halqasi (mq-) sinflari qayta ishlatiladi — bu yerda faqat shu
+   bo'limga xos qismlar. */
+.tz-halqa { display: flex; flex-wrap: wrap; gap: 6px; }
+.tz-q {
+  display: flex; align-items: center; gap: 7px; padding: 6px 11px 6px 7px;
+  border: 1px solid var(--chiz); border-radius: 999px; font-size: 12.5px;
+  background: var(--yuza);
+}
+.tz-q .n {
+  width: 20px; height: 20px; flex: none; border-radius: 50%;
+  background: var(--yuza3); color: var(--matn2);
+  font: 700 11px/20px var(--shrift); text-align: center;
+}
+.tz-q.tugadi { border-color: var(--yashil); }
+.tz-q.tugadi .n { background: var(--yashil); color: #fff; }
+.tz-q.joriy { border-color: var(--urgu); background: var(--urgu-fon); }
+.tz-q.joriy .n { background: var(--urgu); color: var(--urgu-matn); }
+.tz-q.kelajak { opacity: .55; }
+
+/* --- progress chizig'i --- */
+.tz-chiz {
+  height: 8px; border-radius: 999px; background: var(--yuza3);
+  overflow: hidden; margin: 8px 0 4px;
+}
+.tz-chiz > i { display: block; height: 100%; background: var(--urgu); }
+.tz-chiz.yashil > i { background: var(--yashil); }
+.tz-chiz.mayda { height: 6px; margin: 5px 0 0; }
+
+.tz-raqam { display: flex; align-items: baseline; gap: 8px; }
+.tz-raqam .k { font: 700 30px/1 var(--shrift); letter-spacing: -.02em; }
+.tz-raqam .t { font-size: 13px; color: var(--xira); }
+
+/* --- diagnostika cheklisti --- */
+.tz-panel {
+  position: sticky; top: 0; z-index: 5; background: var(--fon);
+  padding: 10px 0 12px; border-bottom: 1px solid var(--chiz); margin-bottom: 14px;
+}
+.tz-bosqich { margin-bottom: 10px; border-radius: var(--r-o); overflow: hidden; }
+.tz-bosqich > summary {
+  cursor: pointer; padding: 12px 14px; background: var(--yuza);
+  border: 1px solid var(--chiz); border-radius: var(--r-o);
+  display: flex; align-items: center; gap: 10px; font-weight: 600;
+}
+.tz-bosqich[open] > summary { border-radius: var(--r-o) var(--r-o) 0 0; }
+.tz-bosqich > summary .osdi { font-weight: 400; font-size: 12.5px; color: var(--xira); }
+.tz-ich {
+  border: 1px solid var(--chiz); border-top: 0;
+  border-radius: 0 0 var(--r-o) var(--r-o); background: var(--yuza);
+}
+.tz-blok {
+  padding: 9px 14px; background: var(--yuza2); border-top: 1px solid var(--chiz);
+  font: 600 11.5px/1.4 var(--shrift); letter-spacing: .04em;
+  text-transform: uppercase; color: var(--xira);
+}
+.tz-s {
+  display: flex; align-items: flex-start; gap: 10px; flex-wrap: wrap;
+  padding: 10px 14px; border-top: 1px solid var(--chiz);
+}
+.tz-s .mt { flex: 1; min-width: 180px; line-height: 1.5; font-size: 14px; }
+.tz-s.belgili .mt { color: var(--matn2); }
+.tz-j { display: flex; gap: 5px; flex: none; }
+.tz-j button {
+  min-width: 44px; height: 32px; padding: 0 10px; cursor: pointer;
+  border: 1px solid var(--chiz2); border-radius: var(--r-s);
+  background: var(--yuza); color: var(--matn2); font: 600 12.5px var(--shrift);
+}
+.tz-j button:hover:not([disabled]) { border-color: var(--urgu); }
+.tz-j button.tanlangan.ha { background: var(--yashil); border-color: var(--yashil); color: #fff; }
+.tz-j button.tanlangan.yoq { background: var(--qizil); border-color: var(--qizil); color: #fff; }
+.tz-j button.tanlangan.qisman { background: var(--sariq); border-color: var(--sariq); color: #fff; }
+.tz-qosh { flex-basis: 100%; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.tz-qosh .yorliq-k { margin: 0; }
+.tz-sifat button {
+  height: 27px; min-width: 27px; padding: 0 8px; cursor: pointer;
+  border: 1px solid var(--chiz2); border-radius: var(--r-s);
+  background: var(--yuza); color: var(--matn2); font: 600 12px var(--shrift);
+}
+.tz-sifat button.tanlangan { background: var(--kok); border-color: var(--kok); color: #fff; }
+.tz-s input[type="text"] { flex: 1; min-width: 200px; height: 32px; }
+
+/* --- bo'lim jadvallari --- */
+.tz-kartalar {
+  display: grid; gap: 14px;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+}
+.tz-jadval-o { overflow-x: auto; margin: 0 -16px; padding: 0 16px; }
+table.tz-jadval { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+table.tz-jadval th, table.tz-jadval td {
+  padding: 7px 9px; border-bottom: 1px solid var(--chiz); text-align: left;
+  white-space: nowrap;
+}
+table.tz-jadval th {
+  font: 600 11.5px/1.4 var(--shrift); letter-spacing: .04em;
+  text-transform: uppercase; color: var(--xira);
+}
+table.tz-jadval td.son, table.tz-jadval th.son { text-align: right; }
+table.tz-jadval td.hisobiy { color: var(--xira); }
+table.tz-jadval td.manfiy { color: var(--qizil); font-weight: 600; }
+table.tz-jadval input {
+  width: 100%; min-width: 92px; height: 30px; padding: 0 7px; font-size: 13.5px;
+}
+.tz-jami { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+.tz-jami .qm {
+  padding: 6px 10px; border-radius: var(--r-s); background: var(--yuza2);
+  font-size: 12.5px;
+}
+.tz-jami .qm b { font-weight: 650; }
+
+@media (max-width: 560px) {
+  .tz-s { gap: 8px; }
+  .tz-j button { min-width: 40px; }
+  .tz-jadval-o { margin: 0 -14px; padding: 0 14px; }
+}
+
 /* ========================================================== yordamchi sinflar */
 .qator { display: flex; align-items: center; gap: 10px; }
 .qator.osilgan { justify-content: space-between; }
