@@ -24,6 +24,7 @@ deploy/kengash/
 transkript/chiqish/
 aksent_test/*.wav
 aksent_test/*.mp3
+talaffuz_korpus.tsv
 
 # ============================================================
 #  Deploy artefaktlari — `platforma/` dan robocopy bilan yasaladi

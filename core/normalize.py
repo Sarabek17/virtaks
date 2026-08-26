@@ -12,11 +12,20 @@ qiladi. Aksent/buzilish asosan matndagi "begona" elementlardan kelib chiqadi:
                       yoki g'alati pauzalar berishi mumkin -> olib tashlaymiz
   4. QISQARTMALAR   — "kg", "km" kabilar noto'g'ri o'qiladi -> to'liq so'z
   5. VAQT/FOIZ      — "14:30", "50%" -> "o'n to'rt soat o'ttiz daqiqa", "ellik foiz"
+  6. ORFOEPIYA      — yozilishi != aytilishi: kitob -> kitop, ketdi -> ketti,
+                      uchta -> ushta (nomlangan qoidalar, alohida o'chiriladi)
+  7. LUG'AT         — qoida bilan tushuntirib bo'lmaydigan istisnolar
+                      (talaffuz.txt: mashhur = mas-hur), qoidadan ustun
+  8. IMLO           — o'/g' va tutuq rasmiy belgilar bilan (oʻ gʻ ʼ) — Azure
+                      ovozi shu imloda o'qitilgan
 
 Bu qatlam LLM chiqishi bilan TTS orasida turadi va har bir jumlaga qo'llanadi.
+Sinov: python sinov_talaffuz.py (oltin fayl: talaffuz_oltin.txt).
+Reja va qoidalar asosi: ORFOEPIYA_REJA.md.
 """
 
 import re
+from typing import Callable
 
 # ---------------------------------------------------------------------------
 # 1. Markdown / emoji / texnik belgilarni tozalash
@@ -196,7 +205,242 @@ def expand_abbreviations(text: str) -> str:
 
 
 # ---------------------------------------------------------------------------
-# 5. O'zbek harflari: o'/g' va tutuq belgisini RASMIY imlo belgilariga keltirish
+# 5. TALAFFUZ LUG'ATI — istisnolar (qoida bilan tushuntirib bo'lmaydigan so'zlar)
+# ---------------------------------------------------------------------------
+# Lug'at so'zma-so'z ishlaydi va orfoepiya QOIDALARIDAN OLDIN qo'llanadi:
+# lug'atda topilgan so'z yakuniy hisoblanadi, unga qoida tegmaydi (egasining
+# qulog'i qoidadan ustun). Ikki xil yozuv:
+#   so'z  = talaffuz     — faqat shu so'zning o'zi (mashhur = mas-hur)
+#   so'z* = talaffuz     — O'ZAK: shu bilan boshlangan hamma shakl, qo'shimcha
+#                          saqlanadi (mashhur* = mas-hur  ->  mashhurlik = mas-hurlik)
+# Kalitlar registrga sezgir emas; so'z bosh harf bilan yozilgan bo'lsa,
+# talaffuz ham bosh harf bilan chiqadi.
+#
+# Kod ichidagi asos lug'at — YOZILISHI emas, odamlar OG'ZAKI nutqda qanday
+# talaffuz qilishiga qarab. Foydalanuvchi lug'ati (talaffuz.txt) ustun.
+
+import os as _os
+
+PRONUNCIATION_FIXES: dict[str, str] = {
+    # Salomlashuv: odamlar "alaykum" emas, "aleykum" deb talaffuz qiladi
+    "alaykum": "aleykum",
+    "vaalaykum": "vaaleykum",
+}
+
+# Foydalanuvchi to'ldiradigan lug'at: loyiha ildizidagi talaffuz.txt.
+# O'zgarish DARHOL kuchga kiradi (restart shart emas — fayl har o'zgarganda
+# qayta o'qiladi).
+_USER_DICT_PATH = _os.path.join(
+    _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__))), "talaffuz.txt"
+)
+_dict_cache: dict = {"mtime": None, "exact": {}, "stems": {}}
+
+
+def parse_pronunciation_lines(lines) -> tuple[dict[str, str], dict[str, str]]:
+    """Lug'at qatorlarini (exact, stems) juftligiga ajratadi.
+
+    Apostroflar ' ga keltiriladi (matn ham bu bosqichda shu ko'rinishda),
+    kalitlar kichik harfga. Bir harfli o'zak ma'nosiz — tashlab yuboriladi.
+    """
+    exact: dict[str, str] = {}
+    stems: dict[str, str] = {}
+    for line in lines:
+        line = line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        k, v = line.split("=", 1)
+        k = k.strip().translate(_APOSTROPHES).lower()
+        v = v.strip().translate(_APOSTROPHES)
+        if k.endswith("*"):
+            k = k[:-1].strip()
+            if len(k) >= 2:
+                stems[k] = v
+        elif k:
+            exact[k] = v
+    return exact, stems
+
+
+def _dictionaries() -> tuple[dict[str, str], dict[str, str]]:
+    try:
+        mtime = _os.path.getmtime(_USER_DICT_PATH)
+    except OSError:
+        mtime = None
+    if _dict_cache["mtime"] != mtime or (mtime is None and not _dict_cache["exact"]):
+        exact, stems = {}, {}
+        if mtime is not None:
+            try:
+                with open(_USER_DICT_PATH, encoding="utf-8") as f:
+                    exact, stems = parse_pronunciation_lines(f)
+            except OSError:
+                return _dict_cache["exact"], _dict_cache["stems"]
+        _dict_cache["mtime"] = mtime
+        _dict_cache["exact"] = {**PRONUNCIATION_FIXES, **exact}
+        _dict_cache["stems"] = stems
+    return _dict_cache["exact"], _dict_cache["stems"]
+
+
+def lookup_pronunciation(word: str) -> str | None:
+    """So'z lug'atda bo'lsa talaffuzini qaytaradi (o'zak bo'yicha ham), aks holda None."""
+    exact, stems = _dictionaries()
+    low = word.lower()
+    hit = exact.get(low)
+    if hit is None and stems:
+        # Eng uzun o'zak birinchi: "mashhurlik" uchun "mashhur*" > "mash*"
+        for i in range(len(low), 1, -1):
+            stem = stems.get(low[:i])
+            if stem is not None:
+                hit = stem + low[i:]
+                break
+    if hit is None:
+        return None
+    if word[:1].isupper() and hit:
+        hit = hit[:1].upper() + hit[1:]
+    return hit
+
+
+# ---------------------------------------------------------------------------
+# 6. ORFOEPIYA — o'zbek talaffuz grammatikasi (yozilishi != o'qilishi)
+# ---------------------------------------------------------------------------
+# Adabiy o'zbek orfoepiyasida ayrim harflar kontekstga qarab boshqacha
+# talaffuz qilinadi. TTS harfma-harf o'qib yubormasligi uchun so'zni TALAFFUZ
+# shakliga keltiramiz. Qoidalar SO'Z darajasida, ko'rsatilgan TARTIBDA
+# qo'llanadi (ochdi -> oshdi -> oshti); yagona so'zlararo kontekst — keyingi
+# so'z unli bilan boshlanishi (so'z oxiridagi b/d/g jarangli qoladi).
+#
+# "h" ataylab jarangsizlar qatorida YO'Q: u zaif tovush, undan oldingi
+# undoshni o'zgartirmaydi (mazhab, is'hoq).
+#
+# Har qoidaning nomi bor — eshitish sinovida birma-bir o'chirib ko'rish uchun:
+#   UZ_ORTHOEPY=off                — hammasi o'chadi
+#   UZ_ORTHOEPY_SKIP=shs,d_t       — faqat sanalganlari o'chadi
+
+_VOWELS = "aeiou"
+_DEVOICE = {"b": "p", "d": "t", "g": "k", "z": "s", "v": "f"}
+
+# ch -> sh (t/d oldida): ochdi -> oshdi, uchta -> ushta, nechta -> neshta
+_R_CH_SH = re.compile(r"ch(?=[td])")
+# Jarangsiz undosh oldida jarangli jarangsizlanadi (c — ch boshi):
+# avtobus -> aftobus, yozsa -> yossa, mazkur -> maskur, ovchi -> ofchi.
+# "ng" — bitta tovush (eng, tengsiz, bizning): undagi g ga tegilmaydi.
+_R_BEFORE_VOICELESS = re.compile(r"[bdzv](?=[ptkqsfxc])|(?<!n)g(?=[ptkqsfxc])")
+# So'z oxirida b/d/g -> p/t/k (keyingi so'z unli bilan boshlanmasa):
+# kitob -> kitop, ozod -> ozot, pedagog -> pedagok; "bog'" tegmaydi (g' alohida
+# harf), "eng"/"qarang"/"bizning" tegmaydi (ng digrafi)
+_R_FINAL_VOICED = re.compile(r"[bd]$|(?<!n)g$")
+# d -> t jarangsiz undoshdan (shu jumladan sh/ch) keyin: ketdi -> ketti,
+# otda -> otta, ishdan -> ishtan, tushdi -> tushti
+_R_D_AFTER_VOICELESS = re.compile(r"(?<=[ptkqsfx])d|(?<=[sc]h)d")
+# n -> m lab undoshlari oldida: shanba -> shamba, yonbosh -> yombosh
+_R_N_M = re.compile(r"n(?=[bp])")
+# sh + s -> shsh: ishsiz -> ishshiz, tushsa -> tushsha (allaqachon shsh bo'lsa tegmaydi)
+_R_SHS = re.compile(r"shs(?!h)")
+# s/sh/x/f/n/k/q dan keyingi "t" qo'shimcha boshlovchi undosh (l d n m g s t)
+# oldida tushadi: do'stlar -> do'slar, baxtli -> baxli, Toshkentga ->
+# Toshkenga, vaqtli -> vaqli, aktsiya -> aksiya. "r" dan keyin faqat ikkinchi
+# "t" oldida: to'rtta -> to'rta (buyurtma, shartli, partnyor buzilmaydi).
+# Boshqa undosh oldida QOLADI — aks holda o'zlashma so'zlar buziladi
+# (strategiya, elektr, instrument).
+_R_T_DROP = re.compile(r"(?<=[sxfnkqh])t(?=[ldnmgst])|(?<=r)t(?=t)")
+
+
+def _rule_final_voiced(word: str, next_vowel: bool) -> str:
+    if next_vowel:
+        return word
+    return _R_FINAL_VOICED.sub(lambda m: _DEVOICE[m.group(0)], word)
+
+
+# (nom, funksiya) — TARTIB MUHIM
+OrthoepyRule = Callable[[str, bool], str]
+ORTHOEPY_RULES: list[tuple[str, OrthoepyRule]] = [
+    ("ch_sh", lambda w, nv: _R_CH_SH.sub("sh", w)),
+    ("jarangsiz_oldida", lambda w, nv: _R_BEFORE_VOICELESS.sub(lambda m: _DEVOICE[m.group(0)], w)),
+    ("oxiri_jarangsiz", _rule_final_voiced),
+    ("d_t", lambda w, nv: _R_D_AFTER_VOICELESS.sub("t", w)),
+    ("n_m", lambda w, nv: _R_N_M.sub("m", w)),
+    ("shs", lambda w, nv: _R_SHS.sub("shsh", w)),
+    ("t_tushadi", lambda w, nv: _R_T_DROP.sub("", w)),
+]
+
+
+def active_orthoepy_rules() -> list[tuple[str, OrthoepyRule]]:
+    if _os.getenv("UZ_ORTHOEPY", "on").lower() == "off":
+        return []
+    skip = {s.strip() for s in _os.getenv("UZ_ORTHOEPY_SKIP", "").split(",") if s.strip()}
+    return [(n, f) for n, f in ORTHOEPY_RULES if n not in skip]
+
+
+def orthoepy_word(word: str, next_vowel: bool = False, rules=None) -> str:
+    """Bitta so'zni talaffuz shakliga keltiradi (lug'atsiz, faqat qoidalar)."""
+    for _, fn in (active_orthoepy_rules() if rules is None else rules):
+        word = fn(word, next_vowel)
+    return word
+
+
+def orthoepy_trace(word: str, next_vowel: bool = False) -> list[tuple[str, str]]:
+    """Qaysi qoida so'zni o'zgartirganini ko'rsatadi: [(qoida_nomi, natija), ...]."""
+    trace = []
+    for name, fn in active_orthoepy_rules():
+        new = fn(word, next_vowel)
+        if new != word:
+            trace.append((name, new))
+            word = new
+    return trace
+
+
+# So'z: harflar, ichida yoki oxirida ' bo'lishi mumkin (to'g'ri, bog', a'lo).
+# Raqamlar bu bosqichda allaqachon so'zga aylangan.
+_WORD_RE = re.compile(r"[^\W\d_]+(?:'[^\W\d_]*)*")
+
+
+def apply_pronunciation(text: str) -> str:
+    """Matnni so'zlarga bo'lib: lug'at (ustun) yoki orfoepiya qoidalarini qo'llaydi.
+
+    Chiziqli: har so'z bir marta ko'riladi, lug'at hajmi tezlikka ta'sir
+    qilmaydi (10 000 yozuv ham, 100 000 ham).
+    """
+    rules = active_orthoepy_rules()
+    matches = list(_WORD_RE.finditer(text))
+    out = []
+    pos = 0
+    for k, m in enumerate(matches):
+        out.append(text[pos:m.start()])
+        word = m.group(0)
+        fixed = lookup_pronunciation(word)
+        if fixed is None:
+            next_vowel = False
+            if k + 1 < len(matches):
+                nxt = matches[k + 1]
+                between = text[m.end():nxt.start()]
+                # Faqat bo'shliq bo'lsa — bir nafasda aytiladi; tinish belgisi
+                # bo'lsa pauza bor, so'z oxiri jarangsizlanadi
+                next_vowel = between.isspace() and nxt.group(0)[0].lower() in _VOWELS
+            fixed = orthoepy_word(word, next_vowel, rules)
+        out.append(fixed)
+        pos = m.end()
+    out.append(text[pos:])
+    return "".join(out)
+
+
+def apply_orthoepy(text: str) -> str:
+    """Faqat qoidalar, lug'atsiz (korpus hisobotlari uchun)."""
+    rules = active_orthoepy_rules()
+    matches = list(_WORD_RE.finditer(text))
+    out, pos = [], 0
+    for k, m in enumerate(matches):
+        out.append(text[pos:m.start()])
+        next_vowel = False
+        if k + 1 < len(matches):
+            nxt = matches[k + 1]
+            between = text[m.end():nxt.start()]
+            next_vowel = between.isspace() and nxt.group(0)[0].lower() in _VOWELS
+        out.append(orthoepy_word(m.group(0), next_vowel, rules))
+        pos = m.end()
+    out.append(text[pos:])
+    return "".join(out)
+
+
+# ---------------------------------------------------------------------------
+# 7. O'zbek harflari: o'/g' va tutuq belgisini RASMIY imlo belgilariga keltirish
 # ---------------------------------------------------------------------------
 # Rasmiy o'zbek lotin imlosida:
 #   oʻ, gʻ  — U+02BB (MODIFIER LETTER TURNED COMMA) bilan yoziladi
@@ -207,8 +451,6 @@ def expand_abbreviations(text: str) -> str:
 # Belgi turini .env dagi UZ_APOSTROPHE bilan almashtirish mumkin:
 #   official (standart) = ʻ/ʼ,  straight = ',  right = ’
 
-import os as _os
-
 _APOSTROPHE_STYLES = {
     "official": ("ʻ", "ʼ"),   # oʻ gʻ / tutuq ʼ  (rasmiy imlo)
     "straight": ("'", "'"),
@@ -216,48 +458,6 @@ _APOSTROPHE_STYLES = {
 }
 _OG_RE = re.compile(r"([oOgG])'")
 _TUTUQ_RE = re.compile(r"(?<=[a-zA-Z])'(?=[a-zA-Z])")
-
-# Muammoli so'zlar uchun qo'lda talaffuz lug'ati — YOZILISHI emas, odamlar
-# OG'ZAKI nutqda qanday talaffuz qilishiga qarab (kerak bo'lsa to'ldiriladi).
-# Kalit — normalizatsiyadan keyingi so'z, qiymat — TTS ga beriladigan shakl.
-PRONUNCIATION_FIXES: dict[str, str] = {
-    # Salomlashuv: odamlar "alaykum" emas, "aleykum" deb talaffuz qiladi
-    "alaykum": "aleykum",
-    "vaalaykum": "vaaleykum",
-}
-
-# ---------------------------------------------------------------------------
-# 6. ORFOEPIYA — o'zbek talaffuz grammatikasi (yozilishi != o'qilishi)
-# ---------------------------------------------------------------------------
-# Adabiy o'zbek orfoepiyasida ayrim harflar kontekstga qarab boshqacha
-# talaffuz qilinadi. TTS harfma-harf o'qib yubormasligi uchun matnni
-# TALAFFUZ shakliga keltiramiz:
-#   - so'z oxiridagi "b"/"d" jarangsizlanadi (kitob -> kitop, ozod -> ozot),
-#     LEKIN keyingi so'z UNLI bilan boshlansa jarangli qoladi ("aniqlab olamiz")
-#   - jarangsiz undoshdan OLDINGI "v" -> "f":       avtobus -> aftobus, zayavka -> zayafka
-#   - "n" + "b" assimilyatsiyasi -> "mb":           shanba -> shamba, dushanba -> dushamba
-# .env da UZ_ORTHOEPY=off qilib o'chirish mumkin.
-
-# b/d so'z oxirida, faqat keyin unli KELMASA (jumla oxiri, tinish belgisi,
-# undosh bilan boshlanadigan so'z) jarangsizlanadi
-_FINAL_B = re.compile(r"b\b(?!\s+[aeiouAEIOU])")
-_FINAL_D = re.compile(r"d\b(?!\s+[aeiouAEIOU])")
-_V_BEFORE_VOICELESS = re.compile(r"v(?=[ptkqsfxhc])")  # c: ch/ts digraflari boshi
-_N_BEFORE_B = re.compile(r"n(?=b)")
-# Ikki undosh orasidagi "t" og'zaki nutqda tushadi (adabiy orfoepiya):
-# do'stlar -> do'slar, baxtli -> baxli, to'rtta -> to'rta
-_T_BETWEEN_CONS = re.compile(r"(?<=[bcdfghjklmnpqrsvxz])t(?=[bcdfghjklmnpqrsvxz])")
-
-
-def apply_orthoepy(text: str) -> str:
-    if _os.getenv("UZ_ORTHOEPY", "on").lower() == "off":
-        return text
-    text = _FINAL_B.sub("p", text)
-    text = _FINAL_D.sub("t", text)
-    text = _V_BEFORE_VOICELESS.sub("f", text)
-    text = _N_BEFORE_B.sub("m", text)
-    text = _T_BETWEEN_CONS.sub("", text)
-    return text
 
 
 def fix_uzbek_letters(text: str) -> str:
@@ -267,49 +467,6 @@ def fix_uzbek_letters(text: str) -> str:
     text = _OG_RE.sub(lambda m: m.group(1) + og_mark, text)
     # harflar orasida qolgan ' — tutuq belgisi (a'lo, ma'no)
     text = _TUTUQ_RE.sub(tutuq_mark, text)
-    return text
-
-
-# Foydalanuvchi to'ldiradigan talaffuz lug'ati: loyiha ildizidagi talaffuz.txt
-# Har qator: "so'z = talaffuz". O'zgarish DARHOL kuchga kiradi (restart shart
-# emas — fayl har o'zgarganda qayta o'qiladi).
-_USER_DICT_PATH = _os.path.join(
-    _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__))), "talaffuz.txt"
-)
-_user_dict_cache: dict = {"mtime": None, "data": {}}
-
-
-def _load_user_fixes() -> dict[str, str]:
-    try:
-        mtime = _os.path.getmtime(_USER_DICT_PATH)
-    except OSError:
-        return {}
-    if _user_dict_cache["mtime"] != mtime:
-        data = {}
-        try:
-            with open(_USER_DICT_PATH, encoding="utf-8") as f:
-                for line in f:
-                    line = line.strip()
-                    if not line or line.startswith("#") or "=" not in line:
-                        continue
-                    k, v = line.split("=", 1)
-                    # Kalit va qiymatni ham rasmiy imlo apostrofiga keltiramiz,
-                    # chunki matn bu bosqichda allaqachon oʻ/gʻ ko'rinishida
-                    k = fix_uzbek_letters(k.strip().translate(_APOSTROPHES))
-                    v = fix_uzbek_letters(v.strip().translate(_APOSTROPHES))
-                    if k:
-                        data[k] = v
-        except OSError:
-            return _user_dict_cache["data"]
-        _user_dict_cache["mtime"] = mtime
-        _user_dict_cache["data"] = data
-    return _user_dict_cache["data"]
-
-
-def apply_pronunciation_fixes(text: str) -> str:
-    fixes = {**PRONUNCIATION_FIXES, **_load_user_fixes()}
-    for wrong, right in fixes.items():
-        text = re.sub(rf"\b{re.escape(wrong)}\b", right, text, flags=re.IGNORECASE)
     return text
 
 
@@ -327,9 +484,8 @@ def normalize_for_tts(text: str) -> str:
     text = translit_cyr_to_lat(text)   # kirill -> lotin
     text = expand_abbreviations(text)  # kg -> kilogramm
     text = numbers_to_words(text)      # 245 -> ikki yuz qirq besh
-    text = apply_orthoepy(text)        # kitob -> kitop (talaffuz grammatikasi)
+    text = apply_pronunciation(text)   # lug'at (ustun) + orfoepiya: kitob -> kitop
     text = fix_uzbek_letters(text)     # o' -> oʻ, g' -> gʻ, tutuq -> ʼ (rasmiy imlo)
-    text = apply_pronunciation_fixes(text)
     text = _MULTI_PUNCT.sub(r"\1", text)
     text = _MULTI_SPACE.sub(" ", text)
     return text.strip()

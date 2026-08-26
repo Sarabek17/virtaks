@@ -39,6 +39,16 @@ QOIDALAR:
 - Qisqartmalar ishlatma, to'liq so'zlarni yoz.
 - Adabiy, sodda o'zbek tilida gapir.
 
+TALAFFUZ (ovoz bilan gapirganda):
+- Sof o'zbek adabiy talaffuzi, Toshkent me'yori. Rus, turk, fors yoki ingliz
+  aksenti BO'LMASIN: so'zlarni o'zbek tili ona tili bo'lgan odam kabi ayt.
+- O'zbekcha tovushlarni aniq ayt: "q" chuqur til orqa tovushi (qishloq,
+  qalam), "g'" sirg'aluvchi (g'oya, tog'), "o'" yopiq o (o'zbek, ko'z),
+  "x" xirillagan (xabar, yaxshi), "h" yengil nafas (hozir, shahar),
+  "ng" bitta burun tovushi (keng, bizning).
+- Urg'u odatda so'zning oxirgi bo'g'iniga tushadi.
+- Unlilarni cho'zma, tekis va ravon gapir; jumla oxirida ohangni tushir.
+
 Sen test-assistentsan: foydalanuvchi savollariga do'stona javob ber.
 """
 
@@ -63,28 +73,39 @@ class Settings:
     gemini_model: str
     tts_rate: str   # SSML prosody rate, masalan "+12%" (tezroq) yoki "-10%" (sekinroq)
     tts_pitch: str  # SSML prosody pitch, masalan "+4%" (balandroq, yumshoqroq ohang)
-    tts_provider: str    # "azure" yoki "yandex" (Alisa texnologiyasi, Nigora ovozi)
+    tts_provider: str    # "azure" | "yandex" (Alisa texnologiyasi, Nigora ovozi) | "gemini" (modelning o'z ovozi)
     yandex_api_key: str
     yandex_voice: str
+    gemini_voice: str    # TTS_PROVIDER=gemini uchun prebuilt ovoz nomi (bo'sh — model standarti)
+
+    @property
+    def voice_label(self) -> str:
+        """Ekran/log uchun joriy ovoz nomi."""
+        if self.tts_provider == "gemini":
+            return f"Gemini {self.gemini_voice or 'standart'}"
+        if self.tts_provider == "yandex":
+            return f"Yandex {self.yandex_voice}"
+        return self.azure_voice
 
     @classmethod
     def load(cls, dotenv_path: str | None = None) -> "Settings":
         load_dotenv(dotenv_path)
         provider = os.getenv("TTS_PROVIDER", "azure").strip().lower()
+        azure_key = os.getenv("AZURE_SPEECH_KEY", "").strip()
+        yandex_key = os.getenv("YANDEX_API_KEY", "").strip()
         if provider == "yandex":
-            azure_key = os.getenv("AZURE_SPEECH_KEY", "").strip()
             yandex_key = _require(
                 "YANDEX_API_KEY",
                 "Yandex Cloud'da service account yaratib, unga "
                 "ai.speechkit-tts.user roli bilan API kalit oling "
                 "(console.yandex.cloud)",
             )
-        else:
+        elif provider != "gemini":
+            # Gemini rejimida Azure kaliti shart emas — zaxira sifatida qoladi
             azure_key = _require(
                 "AZURE_SPEECH_KEY",
                 "kalitni Azure portalida Speech resursi (bepul F0 tarifi ham bo'ladi) dan oling",
             )
-            yandex_key = os.getenv("YANDEX_API_KEY", "").strip()
         return cls(
             gemini_api_key=_require(
                 "GEMINI_API_KEY", "kalitni https://aistudio.google.com/apikey dan oling"
@@ -98,4 +119,5 @@ class Settings:
             tts_provider=provider,
             yandex_api_key=yandex_key,
             yandex_voice=os.getenv("YANDEX_VOICE", "nigora"),
+            gemini_voice=os.getenv("GEMINI_VOICE", "").strip(),
         )

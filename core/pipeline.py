@@ -18,6 +18,11 @@ MUHIM (2026-iyul): native-audio Live modellar response_modalities=["TEXT"] ni
 qo'llab-quvvatlamaydi (1011 xato). Shuning uchun AUDIO modallik +
 output_audio_transcription ishlatamiz: Gemini'ning o'z ovozi TASHLAB
 YUBORILADI, faqat matn Azure TTS ga boradi. Mantiqiy arxitektura o'zgarmaydi.
+
+TTS_PROVIDER=gemini (2026-08-25): modelning o'z ovozi tashlanmaydi —
+inline_data bo'laklari to'g'ridan-to'g'ri chiqishga (karnay/WebSocket)
+uzatiladi, Azure/Yandex zaxirada. Talaffuz qatlami bu rejimda ovozga ta'sir
+qilmaydi.
 """
 
 import asyncio
@@ -81,6 +86,9 @@ class AssistantPipeline:
         self.phone_mode = phone_mode      # web'dan jonli almashtirilishi mumkin
         self.text_mode = text_mode
         self.tts = create_tts(settings, event_cb, audio_sink=tts_audio_sink)
+        # Modelning o'z ovozi ishlatiladigan rejim (GeminiVoice) — audio
+        # bo'laklari shu funksiyaga boradi, aks holda None (tashlanadi)
+        self._model_audio = getattr(self.tts, "play_audio", None)
 
         # Suhbat navbati (turn) holati
         self.last_voice_ts: Optional[float] = None
@@ -90,6 +98,7 @@ class AssistantPipeline:
         self.resp_buf = ""
         self.resp_full = ""
         self.sent_idx = 0
+        self._audio_started = False   # navbatda modeldan birinchi audio keldimi
         self._voice_active = False
         self._silence_count = 0
 
@@ -109,6 +118,7 @@ class AssistantPipeline:
         self.resp_full = ""
         self.first_token_ts = None
         self.sent_idx = 0
+        self._audio_started = False
 
     def _build_config(self) -> types.LiveConnectConfig:
         common: dict = dict(
@@ -124,6 +134,14 @@ class AssistantPipeline:
                 sliding_window=types.SlidingWindow()
             ),
         )
+        if self.settings.tts_provider == "gemini" and self.settings.gemini_voice:
+            common["speech_config"] = types.SpeechConfig(
+                voice_config=types.VoiceConfig(
+                    prebuilt_voice_config=types.PrebuiltVoiceConfig(
+                        voice_name=self.settings.gemini_voice
+                    )
+                )
+            )
         if self.text_mode:
             # Sof TEXT modallik — hozirgi native-audio modellar rad etadi,
             # kelajakdagi modellar uchun qoldirilgan
@@ -187,12 +205,29 @@ class AssistantPipeline:
             self.sent_idx += 1
             self.tts.say(sent, self.sent_idx)
 
+    async def _on_model_audio(self, pcm: bytes) -> None:
+        """Modelning o'z ovozi (TTS_PROVIDER=gemini): bo'lakni ijroga uzatish."""
+        if not self._audio_started:
+            self._audio_started = True
+            ttfb_ms = (
+                (time.perf_counter() - self.last_voice_ts) * 1000
+                if self.last_voice_ts is not None else None
+            )
+            # Konsol/web statistikasi Azure bilan bir xil hodisa orqali
+            await self._emit(
+                type="tts", idx=1, sentence="(Gemini ovozi)", raw_sentence=None,
+                ttfb_ms=round(ttfb_ms) if ttfb_ms is not None else None,
+                total_ms=0, playback_included=False,
+            )
+        self._model_audio(pcm)
+
     async def _on_interrupted(self) -> None:
         await self._emit(type="barge_in")
         self.resp_buf = ""
         self.resp_full = ""
         self.first_token_ts = None
         self.sent_idx = 0
+        self._audio_started = False
         await self.tts.stop()
         # input_buf tozalanmaydi: unda foydalanuvchining YANGI gapi yig'ilmoqda
 
@@ -257,8 +292,15 @@ class AssistantPipeline:
                         continue  # modelning ICHKI FIKRI — javob emas
                     if part.text:
                         await self._on_text_piece(part.text)
-                    # part.inline_data = Gemini'ning O'Z OVOZI — ataylab
-                    # TASHLAB YUBORILADI, talaffuzni Azure kafolatlaydi
+                    # part.inline_data = Gemini'ning O'Z OVOZI. Azure/Yandex
+                    # rejimida ataylab TASHLAB YUBORILADI (talaffuzni TTS
+                    # kafolatlaydi); TTS_PROVIDER=gemini da ijroga boradi
+                    if (
+                        self._model_audio is not None
+                        and part.inline_data is not None
+                        and part.inline_data.data
+                    ):
+                        await self._on_model_audio(part.inline_data.data)
 
             if sc.turn_complete:
                 await self._on_turn_complete()

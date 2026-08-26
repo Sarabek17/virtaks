@@ -154,6 +154,9 @@ function handleEvent(ev) {
       break;
     case 'tts':
       if (ev.ttfb_ms !== null) els.statTtfb.textContent = ev.ttfb_ms + ' ms';
+      // Talaffuz qatlami matnni o'zgartirgan bo'lsa — nima eshitilayotganini
+      // ko'rsatamiz (orfoepiya/lug'at sinovi uchun): raw -> TTS'ga ketgan shakl
+      if (ev.raw_sentence) addMeta('🔤 ' + ev.raw_sentence + '  →  ' + ev.sentence);
       break;
     case 'barge_in':
       flushPlayback();

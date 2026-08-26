@@ -44,6 +44,12 @@ Chiqish: karnay (konsol) yoki 24 kHz PCM oqimi (web/telefoniya)
 > modallik + `output_audio_transcription` ishlatiladi: Gemini'ning o'z ovozi
 > tashlab yuboriladi, faqat matn Azure TTS ga boradi. `--text-mode` flagi
 > kelajak uchun qoldirilgan.
+>
+> **`TTS_PROVIDER=gemini` (2026-08-25):** modelning o'z ovozi tashlanmaydi —
+> to'g'ridan-to'g'ri karnay/WebSocket'ga uzatiladi (`core/tts.py`
+> `GeminiVoice`). Azure kaliti shart emas, zaxirada qoladi. Bu rejimda
+> talaffuz qatlami (orfoepiya, lug'at) ovozga ta'sir qilmaydi — ular faqat
+> Azure/Yandex sintezida ishlaydi.
 
 ## O'rnatish
 
@@ -115,9 +121,47 @@ qiladi. Har jumla TTS dan oldin shu bosqichlardan o'tadi:
 | Foiz | so'zga | `50%` → `ellik foiz` |
 | Tartib son | so'zga | `5-savol` → `beshinchi savol` |
 | Qisqartmalar | to'liq so'z | `kg` → `kilogramm` |
+| Yozilishi ≠ aytilishi | orfoepiya qoidalari | `kitob` → `kitop`, `ketdi` → `ketti`, `uchta` → `ushta` |
+| Istisno so'zlar | `talaffuz.txt` lug'ati | `mashhur` → `mas-hur` |
+| Apostrof | rasmiy imlo belgisi | `o'` → `oʻ`, `ma'no` → `maʼno` |
 
 Qo'shimcha: SSML `<prosody rate>` orqali gapirish tezligi sozlanadi
 (`.env` da `TTS_RATE=-10%` — sekinroq, tabiiyroq telefon nutqi uchun).
+
+### Orfoepiya (talaffuz qoidalari)
+
+Adabiy o'zbek talaffuzi asosan **qoidaviy**: 7 ta nomlangan qoida so'z
+darajasida, belgilangan tartibda qo'llanadi (`core/normalize.py`,
+`ORTHOEPY_RULES`). Har birini eshitish sinovida alohida o'chirib ko'rish
+mumkin:
+
+```
+UZ_ORTHOEPY=off                 # hammasi o'chadi
+UZ_ORTHOEPY_SKIP=shs,d_t        # faqat sanalganlari o'chadi
+```
+
+| Nom | Qoida | Misol |
+|---|---|---|
+| `ch_sh` | ch → sh (t/d oldida) | uchta → ushta, ochdi → oshti |
+| `jarangsiz_oldida` | b/d/g/z/v → p/t/k/s/f jarangsiz undosh oldida | avtobus → aftobus, yozsa → yossa |
+| `oxiri_jarangsiz` | so'z oxirida b/d/g → p/t/k (keyingi so'z unli bo'lmasa) | kitob → kitop, *kitob oldim* o'zgarmaydi |
+| `d_t` | d → t jarangsizdan keyin | ketdi → ketti, ishdan → ishtan |
+| `n_m` | n → m b/p oldida | shanba → shamba |
+| `shs` | sh + s → shsh | ishsiz → ishshiz |
+| `t_tushadi` | s/sh/x/n/k/q dan keyingi t qo'shimcha oldida tushadi | do'stlar → do'slar, to'rtta → to'rta |
+
+**Lug'at** (`talaffuz.txt`) qoidadan ustun: `so'z = talaffuz` (aniq so'z)
+yoki `so'z* = talaffuz` (o'zak — qo'shimchali shakllar ham). Fayl har
+o'zgarganda qayta o'qiladi, restart shart emas.
+
+**Sinov va korpus:**
+
+```
+python sinov_talaffuz.py     # oltin fayl (talaffuz_oltin.txt) + lug'at + tezlik
+python talaffuz_korpus.py    # transkriptlardan so'z ro'yxati -> talaffuz_korpus.tsv
+```
+
+Qoidalar asosi, eshitish protokoli va bosqichlar: `ORFOEPIYA_REJA.md`.
 
 ## Konsol log formati (test ma'lumotlari)
 

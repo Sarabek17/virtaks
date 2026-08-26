@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="uz">
+<head>
+<meta charset="utf-8">
+<title>Gemini ovoz kastingi</title>
+<style>
+  body { font-family: system-ui, sans-serif; max-width: 900px; margin: 2rem auto; padding: 0 1rem; color: #1a1a1a; background: #fafafa; }
+  h1 { font-size: 1.4rem; }
+  p.matn { background: #fff; border-left: 4px solid #3b6ea5; padding: .6rem .9rem; font-style: italic; }
+  table { border-collapse: collapse; width: 100%; background: #fff; }
+  th, td { text-align: left; padding: .45rem .6rem; border-bottom: 1px solid #e5e5e5; vertical-align: middle; }
+  th { background: #f0f3f7; font-weight: 600; }
+  tr.asos td { background: #fff8e6; }
+  audio { width: 260px; height: 32px; }
+  .m { color: #666; font-size: .85rem; }
+  .tanlov { margin-top: 1.2rem; background: #fff; padding: .8rem 1rem; border: 1px solid #e5e5e5; }
+  code { background: #eee; padding: .1rem .3rem; border-radius: 3px; }
+</style>
+</head>
+<body>
+<h1>Gemini Live ovoz kastingi — o'zbekcha talaffuz</h1>
+<p class="matn">«Assalomu alaykum! Men Madinaman, sizning yordamchingizman. Bugun Toshkentda havo ochiq.
+Qishloqqa borib, do'stlar bilan to'rtta kitob o'qidik, keyin G'ijduvon somsasini yedik.
+Sog'liq — eng katta boylik, shunday emasmi?»</p>
+<p class="m">Hamma yozuv bir xil matn. Qiyin tovushlar: <b>q</b> (qishloqqa), <b>g'</b> (G'ijduvon, sog'liq),
+<b>o'</b> (do'stlar, to'rtta, o'qidik), <b>x/h</b> (havo, ochiq), <b>ng</b> (eng). Birinchi qator — hozirgi holat
+(talaffuz promptisiz, standart ovoz). Qolganlari — talaffuz prompti bilan.</p>
+
+<table>
+<thead><tr><th>#</th><th>Model</th><th>Ovoz</th><th>Tinglash</th><th>.env</th></tr></thead>
+<tbody>
+<tr class="asos"><td>0</td><td>3.1-flash-live</td><td>standart, promptsiz (ASOS)</td><td><audio controls preload="none" src="gemini_asos.wav"></audio></td><td><code>GEMINI_VOICE=</code></td></tr>
+<tr><td>1</td><td>3.1-flash-live</td><td>Kore (ayol)</td><td><audio controls preload="none" src="gemini_g31_Kore.wav"></audio></td><td><code>GEMINI_VOICE=Kore</code></td></tr>
+<tr><td>2</td><td>3.1-flash-live</td><td>Aoede (ayol)</td><td><audio controls preload="none" src="gemini_g31_Aoede.wav"></audio></td><td><code>GEMINI_VOICE=Aoede</code></td></tr>
+<tr><td>3</td><td>3.1-flash-live</td><td>Leda (ayol)</td><td><audio controls preload="none" src="gemini_g31_Leda.wav"></audio></td><td><code>GEMINI_VOICE=Leda</code></td></tr>
+<tr><td>4</td><td>3.1-flash-live</td><td>Zephyr (ayol)</td><td><audio controls preload="none" src="gemini_g31_Zephyr.wav"></audio></td><td><code>GEMINI_VOICE=Zephyr</code></td></tr>
+<tr><td>5</td><td>3.1-flash-live</td><td>Despina (ayol)</td><td><audio controls preload="none" src="gemini_g31_Despina.wav"></audio></td><td><code>GEMINI_VOICE=Despina</code></td></tr>
+<tr><td>6</td><td>3.1-flash-live</td><td>Sulafat (ayol)</td><td><audio controls preload="none" src="gemini_g31_Sulafat.wav"></audio></td><td><code>GEMINI_VOICE=Sulafat</code></td></tr>
+<tr><td>7</td><td>3.1-flash-live</td><td>Laomedeia (ayol)</td><td><audio controls preload="none" src="gemini_g31_Laomedeia.wav"></audio></td><td><code>GEMINI_VOICE=Laomedeia</code></td></tr>
+<tr><td>8</td><td>3.1-flash-live</td><td>Achernar (ayol)</td><td><audio controls preload="none" src="gemini_g31_Achernar.wav"></audio></td><td><code>GEMINI_VOICE=Achernar</code></td></tr>
+<tr><td>9</td><td>3.1-flash-live</td><td>Puck (erkak)</td><td><audio controls preload="none" src="gemini_g31_Puck.wav"></audio></td><td><code>GEMINI_VOICE=Puck</code></td></tr>
+<tr><td>10</td><td>3.1-flash-live</td><td>Charon (erkak)</td><td><audio controls preload="none" src="gemini_g31_Charon.wav"></audio></td><td><code>GEMINI_VOICE=Charon</code></td></tr>
+<tr><td>11</td><td>2.5-native-audio</td><td>Kore (ayol)</td><td><audio controls preload="none" src="gemini_g25_Kore.wav"></audio></td><td><code>GEMINI_VOICE=Kore</code> + 2.5 model</td></tr>
+<tr><td>12</td><td>2.5-native-audio</td><td>Aoede (ayol)</td><td><audio controls preload="none" src="gemini_g25_Aoede.wav"></audio></td><td><code>GEMINI_VOICE=Aoede</code> + 2.5 model</td></tr>
+<tr><td>13</td><td>2.5-native-audio</td><td>Leda (ayol)</td><td><audio controls preload="none" src="gemini_g25_Leda.wav"></audio></td><td><code>GEMINI_VOICE=Leda</code> + 2.5 model</td></tr>
+<tr><td>14</td><td>2.5-native-audio</td><td>Zephyr (ayol)</td><td><audio controls preload="none" src="gemini_g25_Zephyr.wav"></audio></td><td><code>GEMINI_VOICE=Zephyr</code> + 2.5 model</td></tr>
+<tr><td>15</td><td>2.5-native-audio</td><td>Despina (ayol)</td><td><audio controls preload="none" src="gemini_g25_Despina.wav"></audio></td><td><code>GEMINI_VOICE=Despina</code> + 2.5 model</td></tr>
+<tr><td>16</td><td>2.5-native-audio</td><td>Sulafat (ayol)</td><td><audio controls preload="none" src="gemini_g25_Sulafat.wav"></audio></td><td><code>GEMINI_VOICE=Sulafat</code> + 2.5 model</td></tr>
+<tr><td>17</td><td>2.5-native-audio</td><td>Laomedeia (ayol)</td><td><audio controls preload="none" src="gemini_g25_Laomedeia.wav"></audio></td><td><code>GEMINI_VOICE=Laomedeia</code> + 2.5 model</td></tr>
+<tr><td>18</td><td>2.5-native-audio</td><td>Achernar (ayol)</td><td><audio controls preload="none" src="gemini_g25_Achernar.wav"></audio></td><td><code>GEMINI_VOICE=Achernar</code> + 2.5 model</td></tr>
+<tr><td>19</td><td>2.5-native-audio</td><td>Puck (erkak)</td><td><audio controls preload="none" src="gemini_g25_Puck.wav"></audio></td><td><code>GEMINI_VOICE=Puck</code> + 2.5 model</td></tr>
+<tr><td>20</td><td>2.5-native-audio</td><td>Charon (erkak)</td><td><audio controls preload="none" src="gemini_g25_Charon.wav"></audio></td><td><code>GEMINI_VOICE=Charon</code> + 2.5 model</td></tr>
+</tbody>
+</table>
+
+<div class="tanlov">
+<b>Tanlash:</b> eng aksentsiz qatorning raqamini ayting — <code>.env</code> ga <code>GEMINI_VOICE=...</code>
+(2.5 model bo'lsa <code>GEMINI_LIVE_MODEL=gemini-2.5-flash-native-audio-preview-12-2025</code> ham) yoziladi
+va server qayta ishga tushiriladi. Qayta yozish: <code>.venv\Scripts\python.exe aksent_test\gemini_kasting.py Kore Leda</code>.
+</div>
+</body>
+</html>

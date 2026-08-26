@@ -58,7 +58,7 @@ async def index():
 
 @app.get("/healthz")
 async def healthz():
-    return {"status": "ok", "model": settings.gemini_model, "voice": settings.azure_voice}
+    return {"status": "ok", "model": settings.gemini_model, "voice": settings.voice_label}
 
 
 @app.websocket("/ws")
@@ -106,7 +106,7 @@ async def ws_endpoint(ws: WebSocket):
         {
             "type": "hello",
             "model": settings.gemini_model,
-            "voice": settings.azure_voice,
+            "voice": settings.voice_label,
         }
     )
 
@@ -162,7 +162,7 @@ def main() -> None:
     print("=" * 60)
     print("  O'ZBEK OVOZLI ASSISTENT — WEB REJIMI")
     print(f"  Gemini model : {settings.gemini_model}")
-    print(f"  Azure ovoz   : {settings.azure_voice}")
+    print(f"  Ovoz         : {settings.voice_label} (TTS_PROVIDER={settings.tts_provider})")
     print(f"  Brauzerda oching: http://localhost:{port}")
     print("=" * 60)
     uvicorn.run(app, host=host, port=port, log_level="info")

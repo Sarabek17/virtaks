@@ -1,0 +1,94 @@
+# OLTIN FAYL — talaffuz qatlamining regressiya sinovi (python sinov_talaffuz.py)
+#
+# Har qator:   kirish matni => kutilgan natija
+# Natija normalize_for_tts() chiqishi; solishtirishda ʻ ʼ ’ belgilari ' ga
+# tenglashtiriladi (rasmiy imlo belgisi alohida sinovda tekshiriladi).
+# Yangi qoida qo'shsangiz yoki o'zgartirsangiz — shu yerga misol qo'shing.
+
+# --- oxiri_jarangsiz: so'z oxirida b/d/g -> p/t/k ---
+kitob => kitop
+Kitob yaxshi. => Kitop yaxshi.
+kitob oldim => kitob oldim
+kitob, olma => kitop, olma
+olib keldi => olip keldi
+olib oldi => olib oldi
+ozod => ozot
+Ahmad keldi => Ahmat keldi
+pedagog => pedagok
+bog' => bog'
+bog'da => bog'da
+maktabda => maktabda
+eng => eng
+bizning => bizning
+qarang => qarang
+marketing => marketing
+tengsiz => tengsiz
+
+# --- jarangsiz_oldida: b/d/g/z/v -> p/t/k/s/f ---
+avtobus => aftobus
+yozsa => yossa
+mazkur => maskur
+ovchi => ofchi
+abstrakt => apstrakt
+tadqiqot => tatqiqot
+заявка => zayafka
+
+# --- ch_sh: ch -> sh (t/d oldida) ---
+ochdi => oshti
+uchta => ushta
+nechta => neshta
+ichdim => ishtim
+kuchli => kuchli
+
+# --- d_t: d -> t jarangsizdan keyin ---
+ketdi => ketti
+otda => otta
+ishdan => ishtan
+tushdi => tushti
+keldi => keldi
+yurtda => yurta
+
+# --- n_m: n -> m (b/p oldida) ---
+shanba => shamba
+dushanba => dushamba
+
+# --- shs: sh + s -> shsh ---
+ishsiz => ishshiz
+ishshiz => ishshiz
+
+# --- t_tushadi: faqat qo'shimcha oldida ---
+do'stlar => do'slar
+baxtli => baxli
+to'rtta => to'rta
+do'stdan => do'stan
+Toshkentga => Toshkenga
+aktsiya => aksiya
+vaqtli => vaqli
+klientlar => klienlar
+pastda => pasta
+rostdan => rostan
+strategiya => strategiya
+elektr => elektr
+instrument => instrument
+ustoz => ustoz
+buyurtma => buyurtma
+shartli => shartli
+partnyor => partnyor
+department => department
+
+# --- lug'at (talaffuz.txt): aniq so'z, o'zak, bosh harf ---
+mashhur => mas-hur
+Mashhur => Mas-hur
+mashhurlik => mas-hurlik
+Is'hoqov => Is-hoqov
+Assalomu alaykum => Assalomu aleykum
+
+# --- 1–5 bosqichlar regressiyasi (raqam, vaqt, foiz, markdown, imlo) ---
+245 => ikki yuz qirq besh
+14:30 => o'n to'rt soat o'ttiz daqiqa
+50% => ellik foiz
+5-savol => beshinchi savol
+5 kg. => besh kilogramm.
+**Salom!** => Salom!
+Ma'no => Ma'no
+to'g'ri => to'g'ri

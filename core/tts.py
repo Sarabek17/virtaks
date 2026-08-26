@@ -405,12 +405,100 @@ class YandexTTS:
             )
 
 
+class GeminiVoice:
+    """Gemini Live'ning O'Z ovozi — sintez yo'q, model chiqarayotgan audio
+    to'g'ridan-to'g'ri uzatiladi.
+
+    AzureTTS bilan bir xil interfeys (say/stop/worker/close) + play_audio():
+    pipeline model_turn.parts[].inline_data bo'laklarini (24 kHz PCM16 mono —
+    Azure chiqishi bilan bir xil format) shu yerga beradi. say() hech narsa
+    qilmaydi — matn faqat ekran uchun.
+
+    MUHIM: talaffuz qatlami (core.normalize) BU REJIMDA OVOZGA TA'SIR
+    QILMAYDI — model o'zi gapiradi, biz uning matnini tuzata olmaymiz.
+    Azure/Yandex TTS_PROVIDER orqali zaxirada qoladi.
+    """
+
+    SAMPLE_RATE = 24000
+
+    def __init__(
+        self,
+        settings: Settings,
+        event_cb: EventCallback,
+        audio_sink: Optional[AudioSink] = None,
+    ):
+        self.settings = settings
+        self.event_cb = event_cb
+        self.audio_sink = audio_sink
+        self.queue: asyncio.Queue = asyncio.Queue()
+        self.generation = 0
+        self._pa = None
+        self._out_stream = None
+
+    def say(self, sentence: str, idx: int) -> None:
+        pass  # matn sintez qilinmaydi — ovoz modeldan keladi
+
+    def play_audio(self, pcm: bytes) -> None:
+        """Modeldan kelgan audio bo'lagini ijro navbatiga qo'yish."""
+        self.queue.put_nowait((self.generation, pcm))
+
+    async def stop(self) -> None:
+        """BARGE-IN: navbatdagi eski bo'laklar tashlanadi, karnay 100 ms ichida jim bo'ladi."""
+        self.generation += 1
+        while not self.queue.empty():
+            try:
+                self.queue.get_nowait()
+            except asyncio.QueueEmpty:
+                break
+
+    async def close(self) -> None:
+        if self._out_stream is not None:
+            try:
+                self._out_stream.stop_stream()
+                self._out_stream.close()
+            except Exception:
+                pass
+            self._out_stream = None
+        if self._pa is not None:
+            try:
+                self._pa.terminate()
+            except Exception:
+                pass
+            self._pa = None
+
+    def _play_speaker(self, pcm: bytes, gen: int) -> None:
+        import pyaudio  # lazy: web-serverga pyaudio umuman kerak emas
+
+        if self._pa is None:
+            self._pa = pyaudio.PyAudio()
+            self._out_stream = self._pa.open(
+                format=pyaudio.paInt16, channels=1, rate=self.SAMPLE_RATE, output=True
+            )
+        chunk = self.SAMPLE_RATE // 10 * 2  # 100 ms
+        for i in range(0, len(pcm), chunk):
+            if gen != self.generation:
+                break
+            self._out_stream.write(pcm[i:i + chunk])
+
+    async def worker(self) -> None:
+        while True:
+            gen, pcm = await self.queue.get()
+            if gen != self.generation:
+                continue
+            if self.audio_sink is not None:
+                await self.audio_sink(pcm)
+            else:
+                await asyncio.to_thread(self._play_speaker, pcm, gen)
+
+
 def create_tts(
     settings: Settings,
     event_cb: EventCallback,
     audio_sink: Optional[AudioSink] = None,
 ):
-    """TTS ta'minotchisini tanlash: .env dagi TTS_PROVIDER (azure | yandex)."""
+    """TTS ta'minotchisini tanlash: .env dagi TTS_PROVIDER (azure | yandex | gemini)."""
+    if settings.tts_provider == "gemini":
+        return GeminiVoice(settings, event_cb, audio_sink=audio_sink)
     if settings.tts_provider == "yandex":
         return YandexTTS(settings, event_cb, audio_sink=audio_sink)
     return AzureTTS(settings, event_cb, audio_sink=audio_sink)

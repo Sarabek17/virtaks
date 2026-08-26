@@ -1,0 +1,23 @@
+# Gemini ovoz kastingi — matn: Assalomu alaykum! Men Madinaman, sizning yordamchingizman. Bugun Toshkentda havo ochiq. Qishloqqa borib, do'stlar bilan to'rtta kitob o'qidik, keyin G'ijduvon somsasini yedik. Sog'liq — eng katta boylik, shunday emasmi?
+# fayl | model | ovoz | davomiyligi | transkript
+gemini_asos.wav | gemini-3.1-flash-live-preview | standart | 15.4 s | «Assalomu alaykum!
+gemini_g31_Kore.wav | gemini-3.1-flash-live-preview | Kore | 15.8 s | Assalomu alaykum. Men Madinaman, sizning yordamchingizman. Bugun Toshkentda havo ochiq. Qishloqqa borib, do'stlar bilan 
+gemini_g31_Aoede.wav | gemini-3.1-flash-live-preview | Aoede | 15.6 s | Assalomu alaykum. Men Madinaman, sizning yordamchingizman. Bugun Toshkentda havo ochiq. Qishloqqa borib, do'stlar bilan 
+gemini_g31_Leda.wav | gemini-3.1-flash-live-preview | Leda | 15.4 s | Assalomu alaykum. Men Madinaman, sizning yordamchingizman. Bugun Toshkentda havo ochiq. Qishloqqa borib, do'stlar bilan 
+gemini_g31_Zephyr.wav | gemini-3.1-flash-live-preview | Zephyr | 15.8 s | Assalomu alaykum. Men Madinaman, sizning yordamchingizman. Bugun Toshkentda havo ochiq. Qishloqqa borib, do'stlar bilan 
+gemini_g31_Despina.wav | gemini-3.1-flash-live-preview | Despina | 14.8 s | Assalomu alaykum. Men Madinaman, sizning yordamchingizman. Bugun Toshkentda havo ochiq. Qishloqqa borib, do'stlar bilan 
+gemini_g31_Sulafat.wav | gemini-3.1-flash-live-preview | Sulafat | 14.3 s | Assalomu alaykum. Men Madinaman, sizning yordamchingizman. Bugun Toshkentda havo ochiq. Qishloqqa borib, do'stlar bilan 
+gemini_g31_Laomedeia.wav | gemini-3.1-flash-live-preview | Laomedeia | 15.7 s | Assalomu alaykum. Men Madinaman, sizning yordamchingizman. Bugun Toshkentda havo ochiq. Qishloqqa borib, do'stlar bilan 
+gemini_g31_Achernar.wav | gemini-3.1-flash-live-preview | Achernar | 14.4 s | Assalomu alaykum. Men Madinaman, sizning yordamchingizman. Bugun Toshkentda havo ochiq. Qishloqqa borib, do'stlar bilan 
+gemini_g31_Puck.wav | gemini-3.1-flash-live-preview | Puck | 14.6 s | Assalomu alaykum. Men Madinaman, sizning yordamchingizman. Bugun Toshkentda havo ochiq. Qishloqqa borib, do'stlar bilan 
+gemini_g31_Charon.wav | gemini-3.1-flash-live-preview | Charon | 15.7 s | Assalomu alaykum. Men Madinaman, sizning yordamchingizman. Bugun Toshkentda havo ochiq. Qishloqqa borib, do'stlar bilan 
+gemini_g25_Kore.wav | gemini-2.5-flash-native-audio-preview-12-2025 | Kore | 17.3 s | Assalomu alaykum! Men Madinaman, sizning yordamchingizman. Bugun Toshkentda havo ochiq. Qishloqqa borib, do'stlar bilan 
+gemini_g25_Aoede.wav | gemini-2.5-flash-native-audio-preview-12-2025 | Aoede | 15.7 s | Assalomu alaykum! Men Madinaman, sizning yordamchingizman. Bugun Toshkentda havo ochiq. Qishloqqa borib, do'stlar bilan 
+gemini_g25_Leda.wav | gemini-2.5-flash-native-audio-preview-12-2025 | Leda | 16.0 s | Assalomu alaykum! Men Madinaman, sizning yordamchingizman. Bugun Toshkentda havo ochiq. Qishloqqa borib, do'stlar bilan 
+gemini_g25_Zephyr.wav | gemini-2.5-flash-native-audio-preview-12-2025 | Zephyr | 15.4 s | Assalomu alaykum! Men Madinaman, sizning yordamchingizman. Bugun Toshkentda havo ochiq. Qishloqqa borib, do'stlar bilan 
+gemini_g25_Despina.wav | gemini-2.5-flash-native-audio-preview-12-2025 | Despina | 16.0 s | Assalomu alaykum! Men Madinaman, sizning yordamchingizman. Bugun Toshkentda havo ochiq. Qishloqqa borib, do'stlar bilan 
+gemini_g25_Sulafat.wav | gemini-2.5-flash-native-audio-preview-12-2025 | Sulafat | 16.2 s | Assalomu alaykum! Men Madinaman, sizning yordamchingizman. Bugun Toshkentda havo ochiq. Qishloqqa borib, do'stlar bilan 
+gemini_g25_Laomedeia.wav | gemini-2.5-flash-native-audio-preview-12-2025 | Laomedeia | 14.7 s | Assalomu alaykum! Men Madinaman, sizning yordamchingizman. Bugun Toshkentda havo ochiq. Qishloqqa borib, do'stlar bilan 
+gemini_g25_Achernar.wav | gemini-2.5-flash-native-audio-preview-12-2025 | Achernar | 15.1 s | Assalomu alaykum! Men Madinaman, sizning yordamchingizman. Bugun Toshkentda havo ochiq. Qishloqqa borib, do'stlar bilan 
+gemini_g25_Puck.wav | gemini-2.5-flash-native-audio-preview-12-2025 | Puck | 17.2 s | Assalomu alaykum! Men Madinaman, sizning yordamchingizman. Bugun Toshkentda havo ochiq. Qishloqqa borib, do'stlar bilan 
+gemini_g25_Charon.wav | gemini-2.5-flash-native-audio-preview-12-2025 | Charon | 15.4 s | Assalomu alaykum! Men Madinaman, sizning yordamchingizman. Bugun Toshkentda havo ochiq. Qishloqqa borib, do'stlar bilan 
