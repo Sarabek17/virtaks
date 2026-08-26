@@ -1,6 +1,12 @@
 # ORFOEPIYA — talaffuz qatlamini kuchaytirish rejasi
 
 > Holat: **🟡 B1–B3 BAJARILDI (2026-08-25), B4 eshitish sinovi egasini kutmoqda.**
+>
+> Gemini kasting tanlovi (2026-08-26): egasi **Achernar** (ayol, asosiy) va
+> **Puck** (erkak, muqobil) ovozlarini tanladi, ikkalasi 3.1-flash-live
+> (`.env`: `GEMINI_VOICE=Achernar`). Ikkalasida ham ozroq aksent qolgan —
+> `TTS_PROVIDER=gemini` rejimida bu qatlam ovozga ta'sir qilmaydi, ish
+> `SYSTEM_PROMPT` dagi TALAFFUZ bo'limi darajasida davom etadi.
 > Kod: `core/normalize.py` (5–7-bo'limlar), `talaffuz.txt`, `talaffuz_oltin.txt`,
 > `sinov_talaffuz.py`, `talaffuz_korpus.py`. Qisqa qo'llanma: `README.md` →
 > «Orfoepiya». Sinov: `python sinov_talaffuz.py` — 70/70 yashil, 0,6 ms/jumla.

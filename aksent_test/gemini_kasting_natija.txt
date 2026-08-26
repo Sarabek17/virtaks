@@ -20,4 +20,10 @@ gemini_g25_Sulafat.wav | gemini-2.5-flash-native-audio-preview-12-2025 | Sulafat
 gemini_g25_Laomedeia.wav | gemini-2.5-flash-native-audio-preview-12-2025 | Laomedeia | 14.7 s | Assalomu alaykum! Men Madinaman, sizning yordamchingizman. Bugun Toshkentda havo ochiq. Qishloqqa borib, do'stlar bilan 
 gemini_g25_Achernar.wav | gemini-2.5-flash-native-audio-preview-12-2025 | Achernar | 15.1 s | Assalomu alaykum! Men Madinaman, sizning yordamchingizman. Bugun Toshkentda havo ochiq. Qishloqqa borib, do'stlar bilan 
 gemini_g25_Puck.wav | gemini-2.5-flash-native-audio-preview-12-2025 | Puck | 17.2 s | Assalomu alaykum! Men Madinaman, sizning yordamchingizman. Bugun Toshkentda havo ochiq. Qishloqqa borib, do'stlar bilan 
-gemini_g25_Charon.wav | gemini-2.5-flash-native-audio-preview-12-2025 | Charon | 15.4 s | Assalomu alaykum! Men Madinaman, sizning yordamchingizman. Bugun Toshkentda havo ochiq. Qishloqqa borib, do'stlar bilan 
+gemini_g25_Charon.wav | gemini-2.5-flash-native-audio-preview-12-2025 | Charon | 15.4 s | Assalomu alaykum! Men Madinaman, sizning yordamchingizman. Bugun Toshkentda havo ochiq. Qishloqqa borib, do'stlar bilan
+
+# TANLOV (egasi, 2026-08-26): 8-variant Achernar (ayol, asosiy) va 9-variant Puck
+# (erkak, muqobil), ikkalasi gemini-3.1-flash-live-preview. .env: GEMINI_VOICE=Achernar.
+# Izoh: ikkalasida ham ozroq aksent qolgan — so'z talaffuzi ustida ishlash davom etadi
+# (Gemini rejimida yo'l — SYSTEM_PROMPT dagi TALAFFUZ bo'limini kuchaytirish,
+# core/normalize.py bu rejimda ovozga ta'sir qilmaydi).
