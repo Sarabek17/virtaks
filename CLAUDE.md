@@ -153,3 +153,6 @@ serverdagi **uchala sayt** tushadi.
 TEXT modallikni rad etadi — `AUDIO` + `output_audio_transcription`
 ishlatiladi, matn Azure TTS ga boradi (`core/normalize.py` "aksent"
 algoritmi orqali). Batafsil: ildiz `README.md`.
+Joriy ovoz: Gemini o'z ovozi (`TTS_PROVIDER=gemini`, Zephyr, ism Madina).
+Boshqa loyihaga aynan shu ovozni ko'chirish — `OVOZ_KOCHIRISH.md`
+(fayllar ro'yxati, .env, tuzoqlar) + `ovoz_namuna.py` (mustaqil namuna).
