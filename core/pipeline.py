@@ -36,7 +36,7 @@ from google.genai import types
 from websockets.exceptions import ConnectionClosed
 
 from core import audio as audio_utils
-from core.config import SYSTEM_PROMPT, Settings
+from core.config import Settings
 from core.tts import AudioSink, EventCallback, create_tts
 
 AudioSourceFactory = Callable[[], AsyncIterator[bytes]]
@@ -122,7 +122,7 @@ class AssistantPipeline:
 
     def _build_config(self) -> types.LiveConnectConfig:
         common: dict = dict(
-            system_instruction=types.Content(parts=[types.Part(text=SYSTEM_PROMPT)]),
+            system_instruction=types.Content(parts=[types.Part(text=self.settings.system_prompt)]),
             input_audio_transcription=types.AudioTranscriptionConfig(),
             # Thinking O'CHIRILADI: latency 2-3 barobar oshadi va "fikr"
             # matnlari javobga aralashadi
@@ -142,6 +142,10 @@ class AssistantPipeline:
                     )
                 )
             )
+        if self.settings.tts_provider == "gemini" and self.settings.gemini_affective:
+            # Model suhbatdosh ohangini sezib, javob ohangini moslaydi (faqat
+            # native-audio modellar; qo'llamasa ulanish 1011 bilan yiqiladi)
+            common["enable_affective_dialog"] = True
         if self.text_mode:
             # Sof TEXT modallik — hozirgi native-audio modellar rad etadi,
             # kelajakdagi modellar uchun qoldirilgan
