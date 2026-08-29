@@ -434,6 +434,12 @@ class GeminiVoice:
         self.generation = 0
         self._pa = None
         self._out_stream = None
+        # Balandlik/tezlik sozlash (GEMINI_PITCH / GEMINI_RATE) — Azure'dagi
+        # TTS_PITCH/TTS_RATE ning DSP analogi; 0% bo'lsa umuman ishlatilmaydi.
+        from core.ovoz_sozlash import OvozSozlagich
+
+        sozlagich = OvozSozlagich(settings.gemini_pitch, settings.gemini_rate, self.SAMPLE_RATE)
+        self.sozlagich = sozlagich if sozlagich.faol else None
 
     def say(self, sentence: str, idx: int) -> None:
         pass  # matn sintez qilinmaydi — ovoz modeldan keladi
@@ -441,6 +447,11 @@ class GeminiVoice:
     def play_audio(self, pcm: bytes) -> None:
         """Modeldan kelgan audio bo'lagini ijro navbatiga qo'yish."""
         self.queue.put_nowait((self.generation, pcm))
+
+    def flush_audio(self) -> None:
+        """Navbat tugadi: sozlagichda qolgan dumni (~30 ms) chiqarish."""
+        if self.sozlagich is not None:
+            self.queue.put_nowait((self.generation, None))
 
     async def stop(self) -> None:
         """BARGE-IN: navbatdagi eski bo'laklar tashlanadi, karnay 100 ms ichida jim bo'ladi."""
@@ -450,6 +461,8 @@ class GeminiVoice:
                 self.queue.get_nowait()
             except asyncio.QueueEmpty:
                 break
+        if self.sozlagich is not None:
+            self.sozlagich.qayta_boshla()
 
     async def close(self) -> None:
         if self._out_stream is not None:
@@ -484,6 +497,11 @@ class GeminiVoice:
         while True:
             gen, pcm = await self.queue.get()
             if gen != self.generation:
+                continue
+            if self.sozlagich is not None:
+                # None — navbat oxiri belgisi (flush_audio): dumni chiqaramiz
+                pcm = self.sozlagich.tugat() if pcm is None else self.sozlagich.qayta_ishla(pcm)
+            if not pcm:
                 continue
             if self.audio_sink is not None:
                 await self.audio_sink(pcm)

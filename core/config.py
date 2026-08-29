@@ -78,9 +78,17 @@ Sen test-assistentsan: foydalanuvchi savollariga do'stona javob ber.
 """
 
 
-def prompt_yasa(ism: str = "Madina", tashqi_tts: bool = False) -> str:
-    """Tizim promptini yig'adi. tashqi_tts — Azure/Yandex uchun undov eslatmasi."""
+def prompt_yasa(ism: str = "Madina", tashqi_tts: bool = False, uslub: str = "") -> str:
+    """Tizim promptini yig'adi.
+
+    tashqi_tts — Azure/Yandex uchun undov eslatmasi.
+    uslub — ovoz/gapirish uslubi (OVOZ_USLUBI), masalan "yosh, yengil, quvnoq
+    qiz ovozi". Gemini o'z ovozida bunday ko'rsatmaga ohang va tembr bilan
+    javob beradi; balandlikning o'zi esa core.ovoz_sozlash (GEMINI_PITCH) bilan.
+    """
     xarakter = XARAKTER_SHABLON.format(ism=ism)
+    if uslub:
+        xarakter += f"- Ovozing va gapirish uslubing: {uslub.strip()}\n"
     if tashqi_tts:
         xarakter += TASHQI_TTS_ESLATMA
     return xarakter + QOIDALAR + TALAFFUZ
@@ -115,16 +123,29 @@ class Settings:
     gemini_voice: str    # TTS_PROVIDER=gemini uchun prebuilt ovoz nomi (bo'sh — model standarti)
     assistant_name: str  # promptdagi ism (ASSISTANT_NAME); ovoz jinsiga mos tanlanadi
     gemini_affective: bool  # GEMINI_AFFECTIVE=1 — his-tuyg'uga mos ohang (enable_affective_dialog)
+    gemini_pitch: str    # GEMINI_PITCH, masalan "+10%" — Gemini ovozi balandligi (DSP, core.ovoz_sozlash)
+    gemini_rate: str     # GEMINI_RATE, masalan "+3%" — Gemini ovozi tezligi (DSP)
+    ovoz_uslubi: str     # OVOZ_USLUBI — promptga qo'shiladigan ovoz/uslub tavsifi (bo'sh — yo'q)
 
     @property
     def system_prompt(self) -> str:
-        return prompt_yasa(self.assistant_name, tashqi_tts=self.tts_provider != "gemini")
+        return prompt_yasa(
+            self.assistant_name,
+            tashqi_tts=self.tts_provider != "gemini",
+            uslub=self.ovoz_uslubi,
+        )
 
     @property
     def voice_label(self) -> str:
         """Ekran/log uchun joriy ovoz nomi."""
         if self.tts_provider == "gemini":
-            return f"Gemini {self.gemini_voice or 'standart'}"
+            label = f"Gemini {self.gemini_voice or 'standart'}"
+            sozlash = [
+                f"pitch {v}" if k == "pitch" else f"rate {v}"
+                for k, v in (("pitch", self.gemini_pitch), ("rate", self.gemini_rate))
+                if v and v.strip("+-0% ") != ""
+            ]
+            return f"{label} ({', '.join(sozlash)})" if sozlash else label
         if self.tts_provider == "yandex":
             return f"Yandex {self.yandex_voice}"
         return self.azure_voice
@@ -164,4 +185,7 @@ class Settings:
             gemini_voice=os.getenv("GEMINI_VOICE", "").strip(),
             assistant_name=os.getenv("ASSISTANT_NAME", "Madina").strip() or "Madina",
             gemini_affective=os.getenv("GEMINI_AFFECTIVE", "").strip().lower() in ("1", "true", "on"),
+            gemini_pitch=os.getenv("GEMINI_PITCH", "+0%").strip() or "+0%",
+            gemini_rate=os.getenv("GEMINI_RATE", "+0%").strip() or "+0%",
+            ovoz_uslubi=os.getenv("OVOZ_USLUBI", "").strip(),
         )

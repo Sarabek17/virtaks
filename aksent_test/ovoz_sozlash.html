@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="uz">
+<head>
+<meta charset="utf-8">
+<title>Ovoz sozlash — pitch / rate</title>
+<style>
+  body { font-family: system-ui, sans-serif; max-width: 1400px; margin: 2rem auto; padding: 0 1rem; color: #1a1a1a; background: #fafafa; }
+  h1 { font-size: 1.3rem; }
+  table { border-collapse: collapse; width: 100%; background: #fff; }
+  th, td { text-align: left; padding: .45rem .5rem; border-bottom: 1px solid #e5e5e5; vertical-align: top; white-space: nowrap; }
+  th { background: #f0f3f7; font-size: .85rem; }
+  td.ovoz b { display: block; }
+  td.ovoz span { color: #666; font-size: .8rem; }
+  audio { width: 190px; height: 30px; display: block; }
+  .m { color: #666; font-size: .85rem; }
+  code { background: #eef; padding: 0 .3em; }
+</style>
+</head>
+<body>
+<h1>Ovoz sozlash — Gemini ayol ovozlari × pitch / rate</h1>
+<p class="m">Manba: kasting yozuvlari (gemini-3.1-flash-live-preview, bir xil matn). Ustun sarlavhasi —
+<code>GEMINI_PITCH</code> / <code>GEMINI_RATE</code> qiymati. Yoqqan katakni toping va <code>.env</code> ga yozing:
+<code>GEMINI_VOICE=&lt;ovoz&gt;</code>, <code>GEMINI_PITCH=…</code>, <code>GEMINI_RATE=…</code>. Qayta ishlash serverdagi
+bilan bir xil (core/ovoz_sozlash.py, oqimli).</p>
+<table>
+<thead><tr><th>Ovoz</th><th>pitch +0%<br>rate +0%</th><th>pitch +6%<br>rate +3%</th><th>pitch +10%<br>rate +3%</th><th>pitch +14%<br>rate +3%</th><th>pitch +18%<br>rate +3%</th><th>pitch +10%<br>rate +8%</th></tr></thead>
+<tbody>
+<tr><td class="ovoz"><b>Leda</b><span>yoshlik (youthful)</span></td><td><audio controls preload="none" src="sozlash_Leda_p+0_r+0.wav"></audio></td><td><audio controls preload="none" src="sozlash_Leda_p+6_r+3.wav"></audio></td><td><audio controls preload="none" src="sozlash_Leda_p+10_r+3.wav"></audio></td><td><audio controls preload="none" src="sozlash_Leda_p+14_r+3.wav"></audio></td><td><audio controls preload="none" src="sozlash_Leda_p+18_r+3.wav"></audio></td><td><audio controls preload="none" src="sozlash_Leda_p+10_r+8.wav"></audio></td></tr>
+<tr><td class="ovoz"><b>Zephyr</b><span>yorqin (bright)</span></td><td><audio controls preload="none" src="sozlash_Zephyr_p+0_r+0.wav"></audio></td><td><audio controls preload="none" src="sozlash_Zephyr_p+6_r+3.wav"></audio></td><td><audio controls preload="none" src="sozlash_Zephyr_p+10_r+3.wav"></audio></td><td><audio controls preload="none" src="sozlash_Zephyr_p+14_r+3.wav"></audio></td><td><audio controls preload="none" src="sozlash_Zephyr_p+18_r+3.wav"></audio></td><td><audio controls preload="none" src="sozlash_Zephyr_p+10_r+8.wav"></audio></td></tr>
+<tr><td class="ovoz"><b>Laomedeia</b><span>quvnoq (upbeat)</span></td><td><audio controls preload="none" src="sozlash_Laomedeia_p+0_r+0.wav"></audio></td><td><audio controls preload="none" src="sozlash_Laomedeia_p+6_r+3.wav"></audio></td><td><audio controls preload="none" src="sozlash_Laomedeia_p+10_r+3.wav"></audio></td><td><audio controls preload="none" src="sozlash_Laomedeia_p+14_r+3.wav"></audio></td><td><audio controls preload="none" src="sozlash_Laomedeia_p+18_r+3.wav"></audio></td><td><audio controls preload="none" src="sozlash_Laomedeia_p+10_r+8.wav"></audio></td></tr>
+<tr><td class="ovoz"><b>Aoede</b><span>yengil (breezy)</span></td><td><audio controls preload="none" src="sozlash_Aoede_p+0_r+0.wav"></audio></td><td><audio controls preload="none" src="sozlash_Aoede_p+6_r+3.wav"></audio></td><td><audio controls preload="none" src="sozlash_Aoede_p+10_r+3.wav"></audio></td><td><audio controls preload="none" src="sozlash_Aoede_p+14_r+3.wav"></audio></td><td><audio controls preload="none" src="sozlash_Aoede_p+18_r+3.wav"></audio></td><td><audio controls preload="none" src="sozlash_Aoede_p+10_r+8.wav"></audio></td></tr>
+<tr><td class="ovoz"><b>Achernar</b><span>yumshoq (soft)</span></td><td><audio controls preload="none" src="sozlash_Achernar_p+0_r+0.wav"></audio></td><td><audio controls preload="none" src="sozlash_Achernar_p+6_r+3.wav"></audio></td><td><audio controls preload="none" src="sozlash_Achernar_p+10_r+3.wav"></audio></td><td><audio controls preload="none" src="sozlash_Achernar_p+14_r+3.wav"></audio></td><td><audio controls preload="none" src="sozlash_Achernar_p+18_r+3.wav"></audio></td><td><audio controls preload="none" src="sozlash_Achernar_p+10_r+8.wav"></audio></td></tr>
+<tr><td class="ovoz"><b>Despina</b><span>silliq (smooth)</span></td><td><audio controls preload="none" src="sozlash_Despina_p+0_r+0.wav"></audio></td><td><audio controls preload="none" src="sozlash_Despina_p+6_r+3.wav"></audio></td><td><audio controls preload="none" src="sozlash_Despina_p+10_r+3.wav"></audio></td><td><audio controls preload="none" src="sozlash_Despina_p+14_r+3.wav"></audio></td><td><audio controls preload="none" src="sozlash_Despina_p+18_r+3.wav"></audio></td><td><audio controls preload="none" src="sozlash_Despina_p+10_r+8.wav"></audio></td></tr>
+<tr><td class="ovoz"><b>Kore</b><span>qat'iy (firm)</span></td><td><audio controls preload="none" src="sozlash_Kore_p+0_r+0.wav"></audio></td><td><audio controls preload="none" src="sozlash_Kore_p+6_r+3.wav"></audio></td><td><audio controls preload="none" src="sozlash_Kore_p+10_r+3.wav"></audio></td><td><audio controls preload="none" src="sozlash_Kore_p+14_r+3.wav"></audio></td><td><audio controls preload="none" src="sozlash_Kore_p+18_r+3.wav"></audio></td><td><audio controls preload="none" src="sozlash_Kore_p+10_r+8.wav"></audio></td></tr>
+<tr><td class="ovoz"><b>Sulafat</b><span>iliq (warm)</span></td><td><audio controls preload="none" src="sozlash_Sulafat_p+0_r+0.wav"></audio></td><td><audio controls preload="none" src="sozlash_Sulafat_p+6_r+3.wav"></audio></td><td><audio controls preload="none" src="sozlash_Sulafat_p+10_r+3.wav"></audio></td><td><audio controls preload="none" src="sozlash_Sulafat_p+14_r+3.wav"></audio></td><td><audio controls preload="none" src="sozlash_Sulafat_p+18_r+3.wav"></audio></td><td><audio controls preload="none" src="sozlash_Sulafat_p+10_r+8.wav"></audio></td></tr>
+</tbody>
+</table>
+</body>
+</html>

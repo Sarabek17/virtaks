@@ -236,6 +236,10 @@ class AssistantPipeline:
         # input_buf tozalanmaydi: unda foydalanuvchining YANGI gapi yig'ilmoqda
 
     async def _on_turn_complete(self) -> None:
+        # Gemini ovozi + pitch/rate sozlash: navbat oxirida DSP dumini chiqarish
+        flush_audio = getattr(self.tts, "flush_audio", None)
+        if flush_audio is not None:
+            flush_audio()
         remainder = self.resp_buf.strip()
         if remainder:
             self.sent_idx += 1
