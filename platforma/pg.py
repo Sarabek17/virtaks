@@ -83,8 +83,31 @@ def hammasi_d(sql: str, *args) -> list[dict]:
         return k.fetchall()
 
 
+# Migratsiya qulfining kaliti. Ixtiyoriy son, lekin BARQAROR bo'lishi shart:
+# web va worker bir vaqtda ko'tarilganda ikkalasi ham migratsiya() ni chaqiradi
+# (docker compose up ikkalasini birga ishga tushiradi). Qulfsiz ikkovi bir xil
+# .sql ni parallel qo'llab, "duplicate key value violates unique constraint
+# migratsiyalar_pkey" bilan yiqilardi — konteyner qayta ko'tarilib, deploy
+# tasodifiy ravishda goh o'tib, goh o'tmay qolardi.
+QULF_KALIT = 4820115
+
+
 def migratsiya():
-    """Qo'llanmagan .sql fayllarni tartib bilan qo'llaydi (har biri tranzaksiyada)."""
+    """Qo'llanmagan .sql fayllarni tartib bilan qo'llaydi (har biri tranzaksiyada).
+
+    Butun jarayon konsultativ qulf ostida: bir vaqtda faqat bitta jarayon
+    migratsiya qiladi, qolganlari kutib turadi va qulf bo'shagach allaqachon
+    qo'llangan ro'yxatni QAYTA o'qiydi (ya'ni hech narsa qilmaydi).
+    """
+    with pul().connection() as qulf, qulf.cursor() as kq:
+        kq.execute("SELECT pg_advisory_lock(%s)", (QULF_KALIT,))
+        try:
+            _migratsiya_qolla()
+        finally:
+            kq.execute("SELECT pg_advisory_unlock(%s)", (QULF_KALIT,))
+
+
+def _migratsiya_qolla():
     with ulanish() as u, u.cursor() as k:
         k.execute("""CREATE TABLE IF NOT EXISTS migratsiyalar(
                        nom TEXT PRIMARY KEY, vaqt timestamptz DEFAULT now())""")

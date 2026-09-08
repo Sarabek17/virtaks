@@ -11,6 +11,7 @@ qaytarish uchun ishlatiladi (dars yozuvining o'sha daqiqasi / o'sha slayd rasmi)
 
 Og'ir ish (STT, OCR, LibreOffice) faqat WORKER'da bajariladi.
 """
+import contextvars
 import re
 import shutil
 import subprocess
@@ -230,7 +231,13 @@ def audio_oqi(fayl: Path, kesh, yoz) -> dict:
         yoz(f"{len(qismlar)} ta audio qism, parallel {PARALLEL}")
         natijalar: dict[int, str] = {}
         with ThreadPoolExecutor(max_workers=PARALLEL) as ex:
-            fut = {ex.submit(_stt_qism, q, i, len(qismlar), kesh, yoz): i
+            # Xarajat konteksti oqimga NUSXA bilan uzatiladi (majlis.py:80
+            # naqshi). Busiz STT sarfi `xarajatlar` jadvaliga UMUMAN
+            # tushmasdi: ContextVar oqimni kesib o'tmaydi, `pul.xarajat_yoz`
+            # esa kontekstsiz jimgina hech qayerga yozmasdi. B2B da bu
+            # to'g'ridan-to'g'ri pul yo'qotish degani.
+            fut = {ex.submit(contextvars.copy_context().run,
+                             _stt_qism, q, i, len(qismlar), kesh, yoz): i
                    for i, q in enumerate(qismlar)}
             for f in as_completed(fut):
                 natijalar[fut[f]] = f.result()
@@ -301,7 +308,11 @@ def pdf_oqi(fayl: Path, kesh, yoz, atama: str = "slayd") -> dict:
 
     natijalar: dict[int, str] = {}
     with ThreadPoolExecutor(max_workers=PARALLEL) as ex:
-        fut = {ex.submit(_sahifa_ocr, r, i, jami, kesh, yoz): i
+        # STT dagi kabi: xarajat konteksti har oqimga alohida nusxa bilan.
+        # 3595 sahifalik to'plamning OCR sarfi shu tuzatishgacha daftarga
+        # tushmagan edi.
+        fut = {ex.submit(contextvars.copy_context().run,
+                         _sahifa_ocr, r, i, jami, kesh, yoz): i
                for i, r in enumerate(rasmlar)}
         for f in as_completed(fut):
             natijalar[fut[f]] = f.result()

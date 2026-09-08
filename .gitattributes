@@ -1,0 +1,19 @@
+# Deploy fayllari Linuxda ishlaydi — qator oxiri MAJBURAN LF.
+# Windowsda tahrirlanganda CRLF tushsa: Dockerfile'dagi `\` davomlari
+# buziladi, `.sh` skriptlar esa "bad interpreter: /bin/bash^M" beradi.
+joylash/**       text eol=lf
+*.sh             text eol=lf
+.dockerignore    text eol=lf
+Dockerfile       text eol=lf
+Caddyfile        text eol=lf
+
+# PowerShell skriptlari — aksincha, CRLF
+*.ps1            text eol=crlf
+
+# Ikkilik fayllar — git tegmasin
+*.docx binary
+*.pptx binary
+*.xlsx binary
+*.wav  binary
+*.mp3  binary
+*.pkl  binary

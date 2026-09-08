@@ -11,8 +11,12 @@ Bitta repoda ikki mustaqil qism bor:
    beradi, twin faqat o'sha ustoz darslariga tayanib javob yozadi —
    SSE oqim, [n] iqtiboslar, audio fragmentlar. Mentorlik (kurs, dars,
    uy vazifasi) va maqsad halqasi (sikl: maqsad → reja → harakat →
-   natija → prognoz) ishlaydi. Jonli: **https://twin.bmslab.uz** (o'z
-   server 169.58.79.192, `/opt/twin`; Railway — offline zaxira).
+   natija → prognoz) ishlaydi. Domen: **https://twin.virtaks.uz** (eski
+   `twin.bmslab.uz` ham shu yerga qaraydi).
+   ⚠️ **HOZIR OFFLINE**: eski server (169.58.79.192) butunlay o'chgan,
+   bazadan zaxira qolmagan. DigitalOcean'da NOLDAN ko'tariladi —
+   `DEPLOY_DO.md`. Bilim bazasi lokal materiallardan tiklanadi
+   (`joylash/urugla.ps1`): 2897 bo'lak + vektorlar saqlanib qolgan.
 2. **Ildiz (`main.py`, `server.py`, `core/`) — O'zbek ovozli AI stend.**
    Gemini Live + Azure TTS telefoniya sinovi. Platformaga aloqasi yo'q.
 
@@ -29,14 +33,18 @@ uchun saqlanadi, YANGI kod yozilmaydi); `deploy_platforma/` — deploy uchun
 | `MENTOR_REJA.md` | Mentorlik rejasi (bajarilgan) — yangi feature rejalari uchun uslub namunasi |
 | `MAQSAD_REJA.md` | Maqsad halqasi (sikl) rejasi + sinov natijalari (bajarilgan) |
 | `PAYLOV_REJA.md` | Paylov to'lovi: protokol, holat mashinasi, sinovlar, cutover |
+| `B2B_API_REJA.md` | **B2B API**: reja + 15-bo'limda bajarilgani va topilgan xatolar |
+| `docs/B2B_API.md` | Hamkorlar uchun API qo'llanmasi (tashqi hujjat) |
+| `DEPLOY_DO.md` | **DigitalOcean deployi**: droplet, docker, TLS, ko'chirish, cutover |
 | `platforma/README.md` | Ishga tushirish, modullar, deploy, xavfsizlik |
 | `CUTOVER.md` | Prodga o'tish tartibi |
 
 ## Brend
 
 Mahsulotning foydalanuvchiga ko'rinadigan nomi — **Virtaks** (sahifa
-sarlavhalari, kirish ekrani, TG bot matnlari, logo harfi «V»). Domen
-o'zgarmadi: **https://twin.bmslab.uz**.
+sarlavhalari, kirish ekrani, TG bot matnlari, logo harfi «V»). Domen —
+**https://twin.virtaks.uz** (2026-08-11 da ko'chirilgan; eski
+`twin.bmslab.uz` hamon shu yerga qaraydi).
 
 Kod ichidagi `twin`, `twinlar`, `twin_id`, `/api/twin/...` — bu domen
 tushunchasi (ustozning raqamli nusxasi), brend EMAS. Ular qayta
@@ -58,6 +66,7 @@ python -m platforma.worker                # worker
 python -m platforma.worker --bir-aylanish # bitta job (sinov)
 python -m platforma.tayyorlik             # prod oldidan to'liq ko'rik
 python -m platforma.sinov_paylov          # to'lov yo'lining sinovlari
+python -m platforma.sinov_b2b             # B2B API sinovlari
 ```
 
 Muhit: `.env` (GEMINI_API_KEY, TELEGRAM_BOT_TOKEN), `.env.platforma`
@@ -131,20 +140,104 @@ brauzer/TG ── web (FastAPI, holatsiz) ── jobs jadvali (SKIP LOCKED) ─�
 6. **Noma'lum job turi xato emas** — qayta navbatga (rolling deploy).
    Job yakuniy yiqilsa foydalanuvchi ma'lumoti YO'QOLMAYDI.
 
-## Deploy (o'z server)
+## B2B API (hamkorlar)
 
-```powershell
-robocopy ..\platforma ..\deploy_platforma\platforma /MIR /XD __pycache__ eski_v1
-# deploy_platforma ichida:
-tar -czf app.tar.gz Dockerfile requirements.txt platforma
+Hamkor o'z ilovasiga twinni ulaydi, o'z mijozlariga xizmat qiladi, hisobni
+o'zi to'laydi. Javob dvigateli QAYTA YOZILMAGAN — `yordamchi.oqim_navbat`
+ayni o'sha, ustida ikki qatlam: izolyatsiya va hisob.
+
+| Fayl | Vazifa |
+|---|---|
+| `b2b.py` | kalitlar (argon2), tashkilot izolyatsiyasi, balans daftari |
+| `api_v1.py` | `/api/v1/*` — 8 endpoint, SSE hodisalarini tozalash |
+| `sinov_b2b.py` | 72 tekshiruv, modelsiz (`python -m platforma.sinov_b2b`) |
+| `sinov_jonli.py` | jonli tutun sinovi — MODEL CHAQIRADI, deploydan keyin bir marta |
+| `web/admin.html` | «Hamkorlar (B2B)» va «Ustoz ulushi» bo'limlari |
+| `migratsiyalar/014_b2b.sql` | tashkilotlar, api_kalitlar, balans_harakat... |
+
+Qat'iy qoidalar:
+
+1. **`b2b.py` `llm` ni import qilmaydi** — `pul.py`/`tolov.py` bilan bir xil
+   zona; `api_v1.py` esa `admin`/`kabinet`/`auth` ni import qilmaydi va
+   cookie sessiyasiga umuman qaramaydi (ikkalasi statik sinovda).
+2. **Tannarx hamkorga chiqmaydi.** `xarajatlar.narx_usd` — bizniki,
+   `hisob_usd` — hamkorniki (`narx * ustama`, sarf paytida QOTIRILADI).
+   `yordamchi` ning `tayyor` hodisasi `narx_usd` bilan keladi —
+   `api_v1._hodisa` uni olib tashlaydi. Yangi hodisa qo'shsang, shu
+   funksiyaga ham qo'sh: **oq ro'yxatda yo'q hodisa umuman uzatilmaydi**.
+3. **Begona resurs 404**, 403 emas — mavjudligini ham oshkor qilmaymiz.
+4. **Balans faqat `balans_harakat` daftari orqali** o'zgaradi (qoldiq bilan),
+   hech qachon to'g'ridan-to'g'ri UPDATE bilan emas.
+5. **Hamkor twinni tanlay olmaydi** — `tashkilot_twin` jadvali;
+   `twin_ruxsat` chegarasi ustiga qo'shiladi, uni yumshatmaydi.
+6. Sarf `pul.xarajat_yoz` da yechiladi — shunda chat, dars, maqsad, majlis,
+   OCR va STT yo'llarining hammasi bitta joydan qamraladi. Yangi dvigatel
+   qo'shsang alohida kod yozish SHART EMAS.
+
+⚠️ `ThreadPoolExecutor` ishlatsang `contextvars.copy_context().run` bilan
+o'ra (`majlis.py:80`, `oquvchi.py:239/314`) — busiz xarajat konteksti
+oqimga o'tmaydi va sarf daftarga tushmaydi (2026-09-09 gacha OCR/STT
+aynan shu sababdan hisobga tushmagan).
+
+⚠️ **Model narxi — pul masalasi, taxmin qilinmaydi.** 2026-09-09 gacha
+`gemini-3.5-flash` bazada 0.30/2.50 edi, haqiqiysi 1.50/9.00 — 4x kam.
+Yangi model qo'shsang narxini Google sahifasidan TEKSHIRIB `model_narxlar`
+ga yoz; `tayyorlik.py` tasdiqlanmagan narx bo'lsa ogohlantiradi.
+O'lchangan: bitta chat javobi ≈ **$0.025** tannarx.
+
+⚠️ **Admin/kabinet UI da `UI.jadval` O'Z IDISHINI TOZALAYDI** — stat
+kartalari va sarlavhalar alohida idishda bo'lishi shart. Sana uchun
+funksiya nomi `UI.vaqt` (`UI.sana` YO'Q).
+
+## Deploy (DigitalOcean)
+
+Deploy artefaktlari repoda: **`joylash/`** (Dockerfile, docker-compose.yml,
+Caddyfile, skriptlar). Build konteksti — repo ildizi, imij `platforma/` ni
+to'g'ridan-to'g'ri oladi: `deploy_platforma/` ga robocopy qilish, tar yasash
+va qo'lda ko'chirish **endi kerak emas**.
+
+```bash
+# droplet, bir marta
+bash joylash/boshlash.sh                  # docker, swap, ufw, fail2ban
+cd joylash && cp env.namuna .env && nano .env
+
+# har deployda
+bash yangilash.sh --tort                  # git pull + build + almashtirish
+bash holat.sh                             # ko'rik
+bash tikla.sh --dump <fayl> --ombor <papka>   # eski serverdan ko'chirish
 ```
 
-Serverda (`/opt/twin`): `app.eski` zaxira → `tar -xzf` → `docker compose
-build && up -d`. To'liq runbook: `/opt/twin/README.md`.
+Servislar: `caddy` (80/443, avtomatik Let's Encrypt), `web`, `ishchi`,
+`db` (pgvector/pgvector:pg18), `minio`. Tashqariga faqat caddy chiqadi;
+`db` va `minio` host portlari **127.0.0.1** da.
 
-⚠️ 80/443 portlari boshqa loyihaning `komir-nginx-1` konteynerida — nginx
-konfigiga tegishdan oldin zaxira ol va `nginx -t` bilan sina, aks holda
-serverdagi **uchala sayt** tushadi.
+Imij ikki nishonli: `web` yengil (~640 MB), `ishchi` og'ir (~1.8 GB —
+ffmpeg, LibreOffice, postgresql-client-18). To'liq runbook: `DEPLOY_DO.md`.
+
+⚠️ Ikkita sozlama xavfsizlikka bog'langan, o'zgartirilmaydi:
+compose'dagi `PROD: "1"` (dev-kirish teshigi) va `Caddyfile` ga
+`trusted_proxies` QO'SHMASLIK (soxta `X-Forwarded-For` Paylov IP oq
+ro'yxatini aylanib o'tardi). Sabablari: `DEPLOY_DO.md` §12.
+
+### Bo'sh dropletni to'ldirish (urug'lantirish)
+
+Eski server yo'q, ko'chiriladigan baza ham yo'q. Yangi droplet lokal
+materiallardan to'ldiriladi (Windowsdan, SSH tunnel orqali):
+
+```powershell
+.\joylash\urugla.ps1 -IP <ip> -Asos    # 2 twin, 7 direktor, 2897 bo'lak
+                                     # + vektor, 13 shablon — LLM puli 0
+.\joylash\urugla.ps1 -IP <ip> -Media   # asl audio/PDF -> MinIO
+.\joylash\urugla.ps1 -IP <ip> -Pdf     # 36 PDF qayta ingest (~$7)
+```
+
+926 CJM/EJM savoli `012_savollar.sql` migratsiyasi bilan o'zi tushadi.
+Bosqichlar mustaqil, qayta yugurtirish xavfsiz. Batafsil: `DEPLOY_DO.md` §6.
+Ommaviy fayl yuklash — `platforma/manba_yukla.py`.
+
+⚠️ **Saboq**: haftalik `zaxira` job'i ishlab turgan edi, lekin nusxalar
+o'sha serverdagi MinIO da qolgan va server bilan birga yo'qoldi. Endi
+zaxira droplet TASHQARISIGA ham chiqariladi (`DEPLOY_DO.md` §9).
 
 ## Ovozli stend (ildiz) — qisqa
 

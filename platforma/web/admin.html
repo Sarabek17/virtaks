@@ -89,6 +89,7 @@ const BOLIMLAR = [
   { kod: "maqsad",     nom: "🎯 Maqsadlar" },
   { kod: "moliya",     nom: "💰 Moliya" },
   { kod: "rejalar",    nom: "🎫 Rejalar va obunalar" },
+  { kod: "hamkorlar",  nom: "🤝 Hamkorlar (B2B)" },
   { kod: "jobs",       nom: "⚙ Fon-ishlar" },
   { kod: "sozlama",    nom: "🔧 Sozlamalar" },
 ];
@@ -1044,6 +1045,306 @@ function maydonKatta(nom, qiymat) {
 }
 
 /* ================================================================ router */
+
+/* ============================================================= HAMKORLAR (B2B)
+   Reja: B2B_API_REJA.md. Bu yuzada USTAMA va TANNARX ko'rinadi — ular faqat
+   adminga; hamkorning o'z API si (`/api/v1/hisob`) ularni hech qachon
+   ko'rsatmaydi. */
+
+function hamkorlarChiz(el) {
+  holat.yur(el, function () { return api.ol(A + "/tashkilotlar"); },
+    function (d, joy) {
+      if (!d.length) {
+        holat.bosh(joy, { ikon: "🤝", sarlavha: "Hamkor yo'q",
+          tan: "«Yangi hamkor» tugmasi bilan birinchi B2B mijozni qo'shing." });
+        return;
+      }
+      const tor = h("div.stat-tor");
+      const jamiBalans = d.reduce(function (a, x) { return a + Number(x.balans_usd); }, 0);
+      const jamiOy = d.reduce(function (a, x) { return a + Number(x.oylik_hisob); }, 0);
+      [["Hamkorlar", d.length],
+       ["Faol", d.filter(function (x) { return x.faol; }).length],
+       ["Jami balans", UI.pul(jamiBalans)],
+       ["Shu oy hisobi", UI.pul(jamiOy)],
+      ].forEach(function (x) {
+        tor.appendChild(h("div.stat", h("div.qiymat", String(x[1])), h("div.nom", x[0])));
+      });
+      joy.appendChild(tor);
+
+      // DIQQAT: `jadval` o'z idishini TOZALAYDI — shuning uchun alohida quti.
+      const jadvalQuti = h("div");
+      joy.appendChild(jadvalQuti);
+      jadval(jadvalQuti, {
+        qatorlar: d, qidiruvMatn: "Nom yoki slug...",
+        ustunlar: [
+          { nom: "ID", kalit: "id" },
+          { nom: "Nom", chiz: function (t) {
+              return h("a", { href: "#/hamkorlar/" + t.id }, t.nom); } },
+          { nom: "Slug", kalit: "slug" },
+          { nom: "Balans", chiz: function (t) {
+              const past = Number(t.balans_usd) <= Number(t.ogohlantirish_usd);
+              return h("span" + (past ? ".qizil-b" : ""), UI.pul(t.balans_usd)); } },
+          { nom: "Ustama", chiz: function (t) { return Number(t.ustama) + "x"; } },
+          { nom: "Shu oy", chiz: function (t) { return UI.pul(t.oylik_hisob); } },
+          { nom: "Kalit", kalit: "kalitlar" },
+          { nom: "Mijoz", kalit: "mijozlar" },
+          { nom: "Holat", chiz: function (t) {
+              return h("span.belgi." + (t.faol ? "yashil-b" : "qizil-b"),
+                t.faol ? "faol" : "o'chiq"); } },
+        ],
+      });
+    });
+}
+
+function hamkorOyna(t) {
+  t = t || {};
+  const nom = qator("Nom", t.nom || "");
+  const slug = qator("Slug (lotin, bo'shliqsiz)", t.slug || "");
+  const email = qator("Aloqa email", t.aloqa_email || "");
+  const ustama = qator("Ustama (tannarxga koeffitsient)", t.ustama || 3.0, "number");
+  const kredit = qator("Kredit chegarasi ($)", t.kredit_chegara_usd || 0, "number");
+  const ogoh = qator("Ogohlantirish chegarasi ($)", t.ogohlantirish_usd || 5, "number");
+  const oqim = qator("Parallel oqim", t.oqim_limit || 5, "number");
+  const daqiqa = qator("So'rov / daqiqa", t.daqiqa_limit || 60, "number");
+  const oylik = qator("Oylik chegara ($, 0 = cheksiz)", t.oylik_chegara_usd || 0, "number");
+  const tan = h("div", nom.quti, slug.quti, email.quti, ustama.quti, kredit.quti,
+    ogoh.quti, oqim.quti, daqiqa.quti, oylik.quti,
+    h("div.izoh", "Ustama — hamkordan olinadigan summa tannarxga necha barobar. " +
+      "Sarf paytida QOTIRILADI: keyin o'zgartirsangiz o'tgan hisob o'zgarmaydi."));
+  modal({
+    sarlavha: t.id ? "Hamkorni tahrirlash" : "Yangi hamkor", tan: tan,
+    amallar: [
+      { nom: "Bekor", uslub: "shaffof" },
+      { nom: "Saqlash", uslub: "asosiy", onclick: async function () {
+        const d = {
+          ustama: parseFloat(ustama.el.value || "3"),
+          kredit_chegara_usd: parseFloat(kredit.el.value || "0"),
+          ogohlantirish_usd: parseFloat(ogoh.el.value || "5"),
+          oqim_limit: parseInt(oqim.el.value || "5", 10),
+          daqiqa_limit: parseInt(daqiqa.el.value || "60", 10),
+          oylik_chegara_usd: parseFloat(oylik.el.value || "0"),
+        };
+        try {
+          if (t.id) await api.yangila(A + "/tashkilot/" + t.id, d);
+          else await api.yubor(A + "/tashkilot", Object.assign(
+            { nom: nom.el.value.trim(), slug: slug.el.value.trim(),
+              aloqa_email: email.el.value.trim() }, d));
+          toast("Saqlandi", "ok"); yur();
+        } catch (e) { xatoToast(e); return false; }
+      } },
+    ],
+  });
+}
+
+async function balansOyna(t) {
+  const summa = qator("Summa ($) — musbat to'ldirish, manfiy tuzatish", 0, "number");
+  const izoh = qator("Izoh (bank o'tkazmasi raqami...)", "");
+  modal({
+    sarlavha: "Balans: " + t.nom,
+    tan: h("div", h("div.izoh", "Joriy balans: " + UI.pul(t.balans_usd)),
+      summa.quti, izoh.quti),
+    amallar: [
+      { nom: "Bekor", uslub: "shaffof" },
+      { nom: "Yozish", uslub: "asosiy", onclick: async function () {
+        const v = parseFloat(summa.el.value || "0");
+        if (!v) { toast("Summa 0", "xato"); return false; }
+        try {
+          const r = await api.yubor(A + "/tashkilot/" + t.id + "/balans",
+            { summa_usd: v, izoh: izoh.el.value });
+          toast("Yangi balans: " + UI.pul(r.balans_usd), "ok"); yur();
+        } catch (e) { xatoToast(e); return false; }
+      } },
+    ],
+  });
+}
+
+async function kalitOyna(t) {
+  const nom = qator("Kalit nomi (prod, sinov, mobil...)", "");
+  const ip = qator("IP oq ro'yxati (vergul bilan, bo'sh = filtrsiz)", "");
+  modal({
+    sarlavha: "Yangi API kalit: " + t.nom,
+    tan: h("div", nom.quti, ip.quti,
+      h("div.izoh", "Kalit FAQAT BIR MARTA ko'rsatiladi. Hamkorga xavfsiz " +
+        "kanal orqali yuboring.")),
+    amallar: [
+      { nom: "Bekor", uslub: "shaffof" },
+      { nom: "Yaratish", uslub: "asosiy", onclick: async function () {
+        try {
+          const ipRoyxat = ip.el.value.split(",").map(function (x) { return x.trim(); })
+            .filter(Boolean);
+          const r = await api.yubor(A + "/tashkilot/" + t.id + "/kalit",
+            { nom: nom.el.value.trim(), ip_oq: ipRoyxat });
+          kalitKorsat(r.kalit);
+          yur();
+        } catch (e) { xatoToast(e); return false; }
+      } },
+    ],
+  });
+}
+
+function kalitKorsat(kalit) {
+  const maydon = h("input", { value: kalit, readonly: true,
+    style: "width:100%;font-family:monospace;font-size:13px" });
+  modal({
+    sarlavha: "Kalit yaratildi",
+    tan: h("div",
+      h("div.izoh.qizil-b", "⚠️ Bu kalit BOSHQA KO'RSATILMAYDI — hoziroq nusxa oling."),
+      maydon),
+    amallar: [
+      { nom: "Nusxa olish", uslub: "asosiy", onclick: function () {
+          maydon.select();
+          try { document.execCommand("copy"); toast("Nusxa olindi", "ok"); }
+          catch (e) { toast("Qo'lda nusxa oling", "xato"); }
+          return false;
+        } },
+      { nom: "Yopdim", uslub: "shaffof" },
+    ],
+  });
+}
+
+function hamkorChiz(el, tid) {
+  holat.yur(el, async function () {
+    const hammasi = await api.ol(A + "/tashkilotlar");
+    const t = hammasi.filter(function (x) { return String(x.id) === String(tid); })[0];
+    if (!t) throw new Error("topilmadi");
+    const [kalitlar, marja, harakatlar, twinlar, hisobot] = await Promise.all([
+      api.ol(A + "/tashkilot/" + tid + "/kalitlar"),
+      api.ol(A + "/tashkilot/" + tid + "/marja?kun=30"),
+      api.ol(A + "/tashkilot/" + tid + "/harakatlar"),
+      api.ol(A + "/twinlar"),
+      api.ol(A + "/tashkilot/" + tid + "/hisobot"),
+    ]);
+    return { t: t, kalitlar: kalitlar, marja: marja, harakatlar: harakatlar,
+             twinlar: twinlar, hisobot: hisobot };
+  }, function (d, joy) {
+    const t = d.t;
+    joy.appendChild(h("div.qator", { style: "margin-bottom:16px;gap:8px" },
+      h("a.tug.shaffof", { href: "#/hamkorlar" }, "← Hamkorlar"),
+      tugma("💰 Balans", "asosiy", function () { balansOyna(t); }),
+      tugma("🔑 Yangi kalit", "", function () { kalitOyna(t); }),
+      tugma("✎ Sozlamalar", "", function () { hamkorOyna(t); })));
+
+    const tor = h("div.stat-tor");
+    [["Balans", UI.pul(t.balans_usd)],
+     ["Ustama", Number(t.ustama) + "x"],
+     ["Shu oy (hamkor to'laydi)", UI.pul(d.hisobot.jami_usd)],
+     ["Shu oy savollar", d.hisobot.savollar],
+     ["Mijozlar", t.mijozlar],
+     ["30 kun tannarx", UI.pul(d.marja.tannarx_usd)],
+     ["30 kun marja", UI.pul(d.marja.marja_usd)],
+     ["Marja %", d.marja.marja_foiz + "%"],
+    ].forEach(function (x) {
+      tor.appendChild(h("div.stat", h("div.qiymat", String(x[1])), h("div.nom", x[0])));
+    });
+    joy.appendChild(tor);
+
+    /* --- twinlar */
+    joy.appendChild(h("div.bolim-bosh", h("h2", "Ochilgan ustozlar")));
+    const twinQuti = h("div.karta.bolim-oraliq", h("div.karta-ich"));
+    const ich = twinQuti.firstChild;
+    const ochiq = (t.twin_ids || []).map(Number);
+    d.twinlar.forEach(function (tw) {
+      const bor = ochiq.indexOf(Number(tw.id)) >= 0;
+      const alm = h("input", { type: "checkbox" });
+      alm.checked = bor;
+      alm.addEventListener("change", async function () {
+        try {
+          if (alm.checked) await api.yubor(A + "/tashkilot/" + tid + "/twin/" + tw.id, {});
+          else await api.ochir(A + "/tashkilot/" + tid + "/twin/" + tw.id);
+          toast("Saqlandi", "ok");
+        } catch (e) { xatoToast(e); alm.checked = !alm.checked; }
+      });
+      ich.appendChild(h("label.almash", { style: "display:flex;gap:8px;margin:6px 0" },
+        alm, h("span.yol"), h("span", tw.nom)));
+    });
+    joy.appendChild(twinQuti);
+
+    /* --- kalitlar */
+    joy.appendChild(h("div.bolim-bosh", h("h2", "API kalitlari")));
+    const kalitQuti = h("div");
+    joy.appendChild(kalitQuti);
+    jadval(kalitQuti, {
+      qatorlar: d.kalitlar,
+      ustunlar: [
+        { nom: "Nom", chiz: function (k) { return k.nom || "—"; } },
+        { nom: "Prefiks", chiz: function (k) {
+            return h("code", "vk_…_" + k.prefiks + "_…"); } },
+        { nom: "Huquqlar", chiz: function (k) { return (k.huquqlar || []).join(", "); } },
+        { nom: "IP", chiz: function (k) { return (k.ip_oq || []).join(", ") || "—"; } },
+        { nom: "Oxirgi", chiz: function (k) {
+            return k.oxirgi_ishlatilgan ? UI.vaqt(k.oxirgi_ishlatilgan) : "hech qachon"; } },
+        { nom: "Holat", chiz: function (k) {
+            return h("span.belgi." + (k.faol ? "yashil-b" : "qizil-b"),
+              k.faol ? "faol" : "o'chiq"); } },
+        { nom: "", chiz: function (k) {
+            if (!k.faol) return "";
+            return tugma("✕", "xavf", async function () {
+              if (!await UI.tasdiq({ sarlavha: "Kalitni o'chirish", xavfli: true,
+                    tan: "Kalit darhol ishlamay qoladi. Hamkor integratsiyasi to'xtaydi." }))
+                return;
+              try { await api.ochir(A + "/kalit/" + k.id); toast("O'chirildi", "ok"); yur(); }
+              catch (e) { xatoToast(e); }
+            }); } },
+      ],
+    });
+
+    /* --- balans harakatlari */
+    joy.appendChild(h("div.bolim-bosh", h("h2", "Balans harakatlari")));
+    const harakatQuti = h("div");
+    joy.appendChild(harakatQuti);
+    jadval(harakatQuti, {
+      qatorlar: d.harakatlar, sahifaHajmi: 20,
+      ustunlar: [
+        { nom: "Vaqt", chiz: function (x) { return UI.vaqt(x.vaqt); } },
+        { nom: "Tur", kalit: "tur" },
+        { nom: "Summa", chiz: function (x) {
+            const v = Number(x.summa_usd);
+            return h("span" + (v > 0 ? ".yashil-b" : ""), UI.pul(v)); } },
+        { nom: "Qoldiq", chiz: function (x) { return UI.pul(x.qoldiq_usd); } },
+        { nom: "Izoh", kalit: "izoh" },
+      ],
+    });
+  });
+}
+
+function royaltiChiz(el) {
+  holat.yur(el, function () { return api.ol(A + "/royalti?kun=30"); },
+    function (d, joy) {
+      joy.appendChild(h("div.karta.bolim-oraliq", h("div.karta-ich", h("div.izoh",
+        "Ustoz ulushi B2B DAROMADIDAN (hamkor to'lagan summadan) hisoblanadi, " +
+        "bizning tannarximizdan emas. B2C obunasi bu yerga kirmaydi. " +
+        "Standart foiz 0 — ulush kelishilgach har ustozga qo'yiladi."))));
+      const royaltiQuti = h("div");
+      joy.appendChild(royaltiQuti);
+      jadval(royaltiQuti, {
+        qatorlar: d.royxat,
+        ustunlar: [
+          { nom: "Ustoz", kalit: "nom" },
+          { nom: "Egasi", chiz: function (x) { return x.egasi || "—"; } },
+          { nom: "30 kun B2B", chiz: function (x) { return UI.pul(x.b2b_usd); } },
+          { nom: "Savollar", kalit: "savollar" },
+          { nom: "Foiz", chiz: function (x) { return Number(x.royalti_foiz) + "%"; } },
+          { nom: "Ulush", chiz: function (x) { return UI.pul(x.ulush_usd); } },
+          { nom: "", chiz: function (x) {
+              return tugma("✎", "", function () {
+                const f = qator("Ulush foizi (0-100)", x.royalti_foiz, "number");
+                modal({ sarlavha: "Ustoz ulushi: " + x.nom, tan: h("div", f.quti),
+                  amallar: [
+                    { nom: "Bekor", uslub: "shaffof" },
+                    { nom: "Saqlash", uslub: "asosiy", onclick: async function () {
+                      try {
+                        await api.yangila(A + "/twin/" + x.id + "/royalti",
+                          { foiz: parseFloat(f.el.value || "0") });
+                        toast("Saqlandi", "ok"); yur();
+                      } catch (e) { xatoToast(e); return false; }
+                    } }],
+                });
+              }); } },
+        ],
+      });
+    });
+}
+
 const YOLLAR = {
   xulosa:      function (a) { sahifa("xulosa", "Xulosa", xulosaChiz, [yangilaTug(yur)]); },
   twinlar:     function (a) { sahifa("twinlar", "Ustozlar", twinlarChiz,
@@ -1061,6 +1362,20 @@ const YOLLAR = {
   moliya:      function (a) { sahifa("moliya", "Moliya", moliyaChiz, [yangilaTug(yur)]); },
   rejalar:     function (a) { sahifa("rejalar", "Rejalar va obunalar", rejalarChiz,
                  [yangilaTug(yur)]); },
+  hamkorlar:   function (a) {
+                 if (a && a[0]) {
+                   sahifa("hamkorlar", "Hamkor #" + a[0],
+                     function (el) { hamkorChiz(el, a[0]); }, [yangilaTug(yur)]);
+                 } else {
+                   sahifa("hamkorlar", "Hamkorlar (B2B)", hamkorlarChiz,
+                     [tugma("+ Yangi hamkor", "asosiy", function () { hamkorOyna(); }),
+                      tugma("👨‍🏫 Ustoz ulushi", "", function () {
+                        location.hash = "#/royalti"; }),
+                      yangilaTug(yur)]);
+                 } },
+  royalti:     function (a) { sahifa("hamkorlar", "Ustoz ulushi (royalti)",
+                 royaltiChiz, [h("a.tug.shaffof", { href: "#/hamkorlar" },
+                   "← Hamkorlar"), yangilaTug(yur)]); },
   jobs:        function (a) { sahifa("jobs", "Fon-ishlar", jobsChiz, [yangilaTug(yur)]); },
   sozlama:     function (a) { sahifa("sozlama", "Sozlamalar", sozlamaChiz,
                  [yangilaTug(yur)]); },

@@ -1,0 +1,22 @@
+# =============================================================================
+#  Docker build konteksti — repo ILDIZI (joylash/docker-compose.yml: context: ..)
+#
+#  Oq ro'yxat uslubi: avval HAMMASI chiqarib tashlanadi, keyin faqat imijga
+#  kerak bo'lgani qaytariladi. Qora ro'yxat bo'lganda repoga qo'shilgan yangi
+#  og'ir papka (transkript, .venv, .docx, namuna.wav ...) jimgina build
+#  kontekstiga tushib, har deployda yuzlab MB ni ko'chirardi.
+# =============================================================================
+*
+
+!platforma
+!joylash
+
+# Kontekstga tushmaydigan keraksiz narsalar
+**/__pycache__
+**/*.py[cod]
+platforma/web/eski_v1
+
+# Sirlar build kontekstiga ham tushmasin
+joylash/.env
+**/.env
+**/.env.*

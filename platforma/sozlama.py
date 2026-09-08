@@ -15,7 +15,7 @@ LOYIHA = ILDIZ.parent                             # VoIpTelefoniya/
 
 _ENV_FAYL = LOYIHA / ".env.platforma"
 if _ENV_FAYL.exists():
-    for q in _ENV_FAYL.read_text(encoding="ascii").splitlines():
+    for q in _ENV_FAYL.read_text(encoding="utf-8").splitlines():
         q = q.strip()
         if q and not q.startswith("#") and "=" in q:
             k, _, v = q.partition("=")

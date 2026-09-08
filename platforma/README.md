@@ -1,6 +1,9 @@
 # Virtaks — platforma
 
-Brend nomi **Virtaks** (prod: https://twin.bmslab.uz — domen o'zgarmadi).
+Brend nomi **Virtaks** (domen: https://twin.virtaks.uz — eski
+`twin.bmslab.uz` ham shu yerga qaraydi). ⚠️ Xizmat hozir **offline**:
+eski server o'chgan, DigitalOcean'da noldan ko'tarilmoqda —
+[`../DEPLOY_DO.md`](../DEPLOY_DO.md).
 Kod ichidagi `twin` / `twinlar` — domen tushunchasi (ustozning raqamli
 nusxasi), brend emas; ular o'zgartirilmaydi.
 
@@ -281,6 +284,10 @@ python -m platforma.tayyorlik
 | `pul.py` / `tolov.py` | xarajat, kvota, obuna / **Paylov**, Click, Payme |
 | `sinov_paylov.py` | to'lov yo'lining sinovlari (`python -m platforma.sinov_paylov`) |
 | `cheklov.py` | tezlik chegarasi (rate limit) |
+| `b2b.py` | **B2B yadrosi**: API kalitlari, tashkilot izolyatsiyasi, balans daftari |
+| `api_v1.py` | **B2B API** `/api/v1/*` — hamkorlar yuzasi (SSE hodisalari tozalanadi) |
+| `sinov_b2b.py` | B2B sinovlari (`python -m platforma.sinov_b2b`) |
+| `manba_yukla.py` | papkadagi fayllarni ommaviy yuklash (kabinet oqimining konsol nusxasi) |
 | `monitoring.py` | jiddiy xatolar → admin Telegram |
 | `zaxira.py` | haftalik `pg_dump` → MinIO |
 | `tayyorlik.py` | cutover oldidan to'liq ko'rik |
@@ -353,32 +360,55 @@ useri/planini yaratadi va oxirida o'chiradi; `sozlamalar` jadvaliga tegmaydi.
 
 ## Deploy
 
-**Jonli manzil: https://twin.bmslab.uz** — o'z serverimizda
-(169.58.79.192, `/opt/twin`). 2026-08-02 da Railway'dan ko'chirilgan.
-Serverdagi to'liq runbook: `/opt/twin/README.md`.
+**Domen: https://twin.virtaks.uz** (hozir offline — DO ga noldan ko'chmoqda)
 
-Deploydan oldin nusxa sinxronlanadi (`deploy_platforma/platforma` —
-`platforma/` ning nusxasi):
+Deploy artefaktlarining hammasi repoda, `joylash/` papkasida — Dockerfile,
+docker-compose.yml, Caddyfile va uchta skript. To'liq runbook:
+[`../DEPLOY_DO.md`](../DEPLOY_DO.md).
 
-```powershell
-robocopy ..\platforma ..\deploy_platforma\platforma /MIR /XD __pycache__ eski_v1
-tar -czf app.tar.gz Dockerfile requirements.txt platforma   # deploy_platforma ichida
+```
+caddy (80/443, avtomatik TLS)
+  └── web (FastAPI, 8900)        ── db (pgvector/pgvector:pg18)
+      ishchi (worker)            ── minio (S3)
 ```
 
-Serverda:
+Tashqariga faqat `caddy` chiqadi; `db` va `minio` host portlari `127.0.0.1`
+da (SSH tunnel orqali xizmat ko'rsatiladi).
 
 ```bash
-cd /opt/twin
-rm -rf app.eski && cp -a app app.eski          # qaytish nuqtasi
-tar -xzf /tmp/app.tar.gz -C app
-docker compose build && docker compose up -d
+cd joylash
+bash yangilash.sh --tort     # git pull + build + servislarni almashtirish
+bash holat.sh                # ko'rik: servislar, navbat, zaxira, xatolar
+bash tikla.sh --dump <fayl> --ombor <papka>   # eski serverdan ko'chirish
 ```
 
-Servislar: `twin-web` (FastAPI), `twin-worker`, `twin-db`
-(pgvector/pgvector:pg18), `twin-minio`. 80/443 portlari boshqa loyihaning
-`komir-nginx-1` konteynerida — biz unga faqat bitta `server` bloki
-qo'shganmiz; konfigni o'zgartirishdan oldin zaxira oling va
-`nginx -t` bilan sinang, aks holda serverdagi **uchala sayt** tushadi.
+Imij ikki nishonli (`joylash/Dockerfile`):
+
+| Nishon | Nima bor | Kim ishlatadi |
+|---|---|---|
+| `web` | python + kutubxonalar + kod | `web` servisi (~640 MB) |
+| `ishchi` | + ffmpeg, LibreOffice, postgresql-client-18 | `ishchi` servisi (~1.8 GB) |
+
+Ajratishning sababi: og'ir ish faqat worker'da bajariladi, web'da ffmpeg
+ham, LibreOffice ham chaqirilmaydi — bitta og'ir imijni ikkalasiga berish
+har deployda 1.1 GB ni bekorga ko'chirish demakdi.
+
+Migratsiyalar konteyner ishga tushganda o'zi qo'llanadi. Web va ishchi bir
+vaqtda ko'tarilgani uchun `pg.migratsiya()` konsultativ qulf ostida ishlaydi
+(`pg.QULF_KALIT`) — ikkovi bir xil `.sql` ni parallel qo'llab yiqilmaydi.
+
+### Bo'sh bazani to'ldirish
+
+Eski server (169.58.79.192) butunlay o'chgan va bazadan zaxira qolmagan,
+shuning uchun yangi o'rnatish lokal materiallardan urug'lantiriladi:
+`joylash/urugla.ps1` (Windowsdan, SSH tunnel orqali) — 2 twin, 7 direktor,
+**2897 bo'lak va ularning vektorlari** (qayta embedding YO'Q), 13 shablon,
+eski suhbat/majlis tarixi. 926 CJM/EJM savoli migratsiya bilan o'zi tushadi.
+Ixtiyoriy bosqichlar: asl media -> MinIO, 36 PDF qayta ingest (~$7).
+Batafsil: `../DEPLOY_DO.md` §6.
+
+Ommaviy fayl yuklash uchun alohida vosita bor — `manba_yukla.py`
+(kabinetdagi yuklash oqimining konsol nusxasi, qayta yugurtirish xavfsiz).
 
 ### Railway (eski, zaxira sifatida saqlanadi)
 

@@ -1,0 +1,77 @@
+# =============================================================================
+#  Virtaks — reverse-proxy va TLS
+#
+#  Sertifikat Let's Encrypt dan AVTOMATIK olinadi va yangilanadi. Buning
+#  uchun domen A-yozuvi shu dropletning IP siga qarab turishi va 80/443
+#  portlari ochiq bo'lishi shart (ufw da ruxsat berilgan).
+#
+#  Sertifikatlar `caddy_data` volumida. Volume o'chirilsa Let's Encrypt
+#  chegarasiga (haftasiga 5 ta) urilib qolish mumkin — ehtiyot bo'ling.
+# =============================================================================
+{
+	email {$ACME_EMAIL}
+}
+
+{$DOMEN} {
+	# --- Siqish -------------------------------------------------------------
+	# Ro'yxat ATAYLAB aniq: standart `text/*` naqshi `text/event-stream` ni
+	# ham qamrab oladi, chat oqimi esa aynan shu turda ketadi. Siqilgan
+	# oqimda javob token-token emas, bo'lak-bo'lak kelib qoladi.
+	encode {
+		zstd
+		gzip
+		match {
+			header Content-Type text/html*
+			header Content-Type text/css*
+			header Content-Type text/plain*
+			header Content-Type application/json*
+			header Content-Type application/javascript*
+			header Content-Type image/svg+xml*
+		}
+	}
+
+	# --- Yuklanadigan fayl hajmi -------------------------------------------
+	# Dars yozuvlari (mp3/mp4) katta bo'ladi. Chegara bo'lmasa bitta so'rov
+	# diskni to'ldirib qo'yishi mumkin.
+	request_body {
+		max_size 2GB
+	}
+
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		-Server
+	}
+
+	reverse_proxy web:8900 {
+		# SSE uchun MAJBURIY: bufer to'lguncha kutilmasin, har hodisa darhol
+		# mijozga ketsin. Busiz chat javobi bir necha soniya "osilib" turadi.
+		flush_interval -1
+
+		# Mijozning IP si. Sinovda tekshirilgan (caddy:2-alpine):
+		# Caddy standart holatda X-Forwarded-For ni mijoz yuborganidan
+		# QAT'IY NAZAR o'zi ko'rgan IP ga QAYTA YOZADI, ya'ni
+		# `X-Forwarded-For: 1.2.3.4` yuborib Paylov IP oq ro'yxatini yoki
+		# tezlik chegarasini aylanib o'tib bo'lmaydi (cheklov.py, tolov.py
+		# sarlavhaning BIRINCHI qadamini oladi).
+		#
+		# SHUNING UCHUN global sozlamalarga `servers { trusted_proxies ... }`
+		# QO'SHILMAYDI: u Caddy'ni mijoz sarlavhasiga ISHONTIRADI va o'zinikini
+		# QO'SHIB qo'yadi ('1.2.3.4, <haqiqiy>') — teshik aynan shunda ochiladi.
+		# Oldimizga CDN yoki yana bir proksi qo'yilsa, avval shu joyni qayta
+		# o'ylang.
+		header_up X-Real-IP {remote_host}
+
+		# Oqim uzoq davom etadi (majlis 40-60 s) — erta uzilmasin.
+		transport http {
+			read_timeout 300s
+			write_timeout 300s
+		}
+	}
+
+	log {
+		output file /data/kirish.log {
+			roll_size 20MiB
+			roll_keep 5
+		}
+	}
+}

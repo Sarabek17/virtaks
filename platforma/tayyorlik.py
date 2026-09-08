@@ -13,7 +13,8 @@ import argparse
 import os
 import sys
 
-from . import auth, llm, pg, pul, skilllar, storage, tizim, zaxira
+from . import (auth, b2b, llm, pg, pul, skilllar, storage, tizim,
+               zaxira)
 from .sozlama import log
 
 XATO, OGOH = [], []
@@ -215,6 +216,15 @@ def pullar():
     tek(not yoq, f"ishlatiladigan {len(modellar)} model narxi bazada",
         ("narxsiz: " + ", ".join(yoq)) if yoq else "")
 
+    # 013_narx.sql zaxira modellarga ASOSIY MODEL narxini qo'ygan — bu
+    # taxmin, tasdiqlanmagan. B2B da noto'g'ri narx to'g'ridan-to'g'ri
+    # noto'g'ri HISOB degani, shuning uchun ko'rikda ko'rinib tursin.
+    shubhali = [r[0] for r in pg.hammasi(
+        "SELECT model FROM model_narxlar WHERE izoh ILIKE '%TASDIQLANMAGAN%'")]
+    tek(not shubhali, "barcha model narxlari tasdiqlangan",
+        ("tekshiring: " + ", ".join(sorted(shubhali))) if shubhali else "",
+        muhim=False)
+
     p = pg.hammasi_d("""SELECT nom, oylik_narx_som, kvota_usd, kun_soni, faol
                         FROM planlar ORDER BY tartib, id""")
     for x in p:
@@ -371,6 +381,53 @@ def tizim_ko():
             f"{nom}.py llm ni import qilmaydi")
 
 
+def b2b_ko():
+    """B2B hamkorlar: sozlama va hisob butunligi."""
+    bolim("11. B2B API (hamkorlar)")
+    t = pg.hammasi_d("""SELECT id, nom, slug, ustama, balans_usd, faol,
+                               ogohlantirish_usd
+                        FROM tashkilotlar ORDER BY id""")
+    if not t:
+        tek(True, "hamkor tashkilot yo'q — B2B hali sotilmagan", "", muhim=False)
+        return
+
+    for x in t:
+        kalitlar = pg.bitta(
+            "SELECT count(*) FROM api_kalitlar WHERE tashkilot_id=%s AND faol",
+            x["id"])[0]
+        twinlar = len(b2b.twinlar(x["id"]))
+        print(f"       «{x['nom']}»: balans ${x['balans_usd']}, ustama "
+              f"{x['ustama']}x, {kalitlar} kalit, {twinlar} twin, "
+              f"{'faol' if x['faol'] else 'o‘chiq'}")
+
+    past = [x["nom"] for x in t
+            if x["faol"] and float(x["balans_usd"]) <= float(x["ogohlantirish_usd"])]
+    tek(not past, "hamkorlarning balansi yetarli",
+        ("balansi past: " + ", ".join(past)) if past else "", muhim=False)
+
+    yolgiz = [x["nom"] for x in t if x["faol"] and not b2b.twinlar(x["id"])]
+    tek(not yolgiz, "har faol hamkorga twin biriktirilgan",
+        ("twinsiz: " + ", ".join(yolgiz)) if yolgiz else "")
+
+    # Sarf yozilgan, lekin hisobga o'tmagan qatorlar — pul yo'qolishi belgisi.
+    uzilgan = pg.bitta(
+        """SELECT count(*) FROM xarajatlar
+           WHERE tashkilot_id IS NOT NULL AND hisob_usd = 0 AND narx_usd > 0""")[0]
+    tek(uzilgan == 0, "har B2B sarfi hisobga o'tgan",
+        f"{uzilgan} ta qatorda hisob_usd = 0")
+
+    # Daftar va balans mos keladimi (audit izi uzilmaganmi)
+    nomos = []
+    for x in t:
+        h = pg.bitta_d(
+            """SELECT qoldiq_usd FROM balans_harakat
+               WHERE tashkilot_id=%s ORDER BY id DESC LIMIT 1""", x["id"])
+        if h and abs(float(h["qoldiq_usd"]) - float(x["balans_usd"])) > 1e-6:
+            nomos.append(x["nom"])
+    tek(not nomos, "balans daftardagi oxirgi qoldiqqa mos",
+        ("nomos: " + ", ".join(nomos)) if nomos else "")
+
+
 def main():
     p = argparse.ArgumentParser()
     p.add_argument("--tez", action="store_true", help="S3 yozish sinovisiz")
@@ -387,6 +444,7 @@ def main():
     zaxiralar()
     web_ko()
     tizim_ko()
+    b2b_ko()
 
     print("\n" + "=" * 60)
     if XATO:

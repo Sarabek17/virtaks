@@ -32,7 +32,10 @@ NARX_KESH_S = 300
 OGOHLANTIRISH_ULUSH = 0.85   # kvotaning shu ulushidan oshsa — eslatma
 
 # Narx bazadan o'qiladi; baza bo'sh bo'lsa shu zaxira ishlatiladi.
-ZAXIRA_NARX = (0.30, 2.50)
+ZAXIRA_NARX = (1.50, 9.00)   # narxi noma'lum model — ASOSIY model narxi
+# DIQQAT: bu qiymat ataylab YUQORI. Noma'lum modelni kam hisoblash B2B da
+# to'g'ridan-to'g'ri zarar (hisob = narx * ustama), ko'p hisoblash esa
+# faqat ehtiyotkorlik — narx `model_narxlar` ga qo'shilgach aniq bo'ladi.
 
 _narx_kesh = {"vaqt": 0.0, "xarita": {}}
 _KONTEKST = contextvars.ContextVar("xarajat_kontekst", default=None)
@@ -64,10 +67,23 @@ def kvota_faolmi() -> bool:
 # ---------------------------------------------------------------- xarajat konteksti
 
 def kontekst_boshla(user_id: int | None = None, twin_id: int | None = None,
-                    job_id: int | None = None, majlis_id: int | None = None) -> dict:
-    """Joriy oqim uchun xarajat daftarini ochadi (job boshida chaqiriladi)."""
+                    job_id: int | None = None, majlis_id: int | None = None,
+                    tashkilot_id: int | None = None) -> dict:
+    """Joriy oqim uchun xarajat daftarini ochadi (job boshida chaqiriladi).
+
+    `tashkilot_id` berilmasa `user_id` dan BIR MARTA qidiriladi — B2B soya
+    foydalanuvchisining sarfi hamkorga yozilishi uchun. Shu yerda qidirilgani
+    muhim: har LLM chaqiruvida qidirilsa, bitta majlisda o'nlab ortiqcha
+    so'rov bo'lardi.
+    """
+    if tashkilot_id is None and user_id:
+        try:
+            r = pg.bitta("SELECT tashkilot_id FROM userlar WHERE id=%s", user_id)
+            tashkilot_id = r[0] if r else None
+        except Exception:                                    # noqa: BLE001
+            tashkilot_id = None      # ustun hali yo'q (eski baza) — muhim emas
     k = {"user_id": user_id, "twin_id": twin_id, "job_id": job_id,
-         "majlis_id": majlis_id, "royxat": []}
+         "majlis_id": majlis_id, "tashkilot_id": tashkilot_id, "royxat": []}
     _KONTEKST.set(k)
     return k
 
@@ -109,24 +125,42 @@ def narx_hisobla(model: str, kirish_tok: int, chiqish_tok: int) -> float:
 
 def xarajat_yoz(model: str, kirish_tok: int, chiqish_tok: int,
                 bosqich: str = "") -> dict:
-    """Bitta LLM chaqiruvini daftarga yozadi. Faqat llm.py chaqiradi."""
+    """Bitta LLM chaqiruvini daftarga yozadi. Faqat llm.py chaqiradi.
+
+    B2B: kontekstda `tashkilot_id` bo'lsa, sarf hamkor hisobiga ham
+    yoziladi (`hisob_usd = narx * ustama`) va balansidan yechiladi.
+    Bu SHU YERDA qilinadi — shunda chat, dars, maqsad, majlis, OCR va STT
+    yo'llarining hammasi bitta joydan qamrab olinadi.
+    """
     narx = narx_hisobla(model, kirish_tok, chiqish_tok)
     k = kontekst()
     yozuv = {"model": model, "bosqich": bosqich, "kirish": kirish_tok,
              "chiqish": chiqish_tok, "narx": narx}
     if k is not None:
         k["royxat"].append(yozuv)
+    tid = (k or {}).get("tashkilot_id")
     try:
-        pg.bajar(
+        r = pg.bitta(
             """INSERT INTO xarajatlar(user_id, twin_id, majlis_id, job_id,
-                                      bosqich, model, kirish_tok, chiqish_tok, narx_usd)
-               VALUES(%s,%s,%s,%s,%s,%s,%s,%s,%s)""",
+                                      bosqich, model, kirish_tok, chiqish_tok,
+                                      narx_usd, tashkilot_id)
+               VALUES(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) RETURNING id""",
             (k or {}).get("user_id"), (k or {}).get("twin_id"),
             (k or {}).get("majlis_id"), (k or {}).get("job_id"),
-            bosqich[:60], model[:60], kirish_tok, chiqish_tok, narx)
+            bosqich[:60], model[:60], kirish_tok, chiqish_tok, narx, tid)
     except Exception as e:                                    # noqa: BLE001
         # Daftar yozilmasa ham asosiy ish to'xtamasin — lekin ko'rinsin.
         log(f"xarajat yozilmadi ({str(e)[:100]})")
+        return yozuv
+
+    if tid and r:
+        try:
+            from . import b2b        # kech import: pul.py -> b2b.py bir tomonlama
+            yozuv["hisob"] = b2b.sarf_yoz(tid, r[0], narx, bosqich)
+        except Exception as e:                                # noqa: BLE001
+            # Hisob yozilmasa PUL YO'QOLADI — bu jimgina o'tmasligi kerak.
+            log(f"B2B HISOB YOZILMADI (tashkilot={tid}, xarajat={r[0]}): "
+                f"{str(e)[:120]}")
     return yozuv
 
 

@@ -37,6 +37,21 @@ def baket_tayyorla():
         log(f"S3 baket yaratildi: {S3_BAKET}")
 
 
+def baket_yumshoq():
+    """Baketni tayyorlaydi, lekin xato bo'lsa jarayonni TO'XTATMAYDI.
+
+    Web va worker ishga tushganda chaqiriladi. Yangi muhitda (bo'sh MinIO
+    volumi) baketni hech kim yaratmasdi va birinchi fayl yuklash
+    "NoSuchBucket" bilan yiqilardi — sababi faqat loglardan topilardi.
+    S3 vaqtincha yetib bo'lmasa ham chat/dars ishlayveradi, shuning uchun
+    bu yerda xato yutiladi.
+    """
+    try:
+        baket_tayyorla()
+    except Exception as e:                                   # noqa: BLE001
+        log(f"S3 baketi tayyorlanmadi: {type(e).__name__}: {str(e)[:120]}")
+
+
 def yukla(yol: str, tarkib: bytes, tur: str = "application/octet-stream"):
     """Baytlarni omborga yozadi. yol: masalan 'manbalar/12/dars1.mp3'."""
     klient().put_object(Bucket=S3_BAKET, Key=yol, Body=tarkib, ContentType=tur)

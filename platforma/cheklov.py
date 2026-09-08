@@ -34,6 +34,14 @@ QOIDA = {
     "tolov": (10, 60),             # to'lov yozuvi yaratish
     "preview": (10, 300),          # xulq preview — LLM chaqiradi, pul sarflaydi
     "tg_yubor": (20, 300),         # fragmentni Telegramga yuborish
+
+    # --- B2B API (b2b.py, api_v1.py) ---------------------------------------
+    # Tashkilot bo'yicha chegara `tashkilotlar.daqiqa_limit` da ham bor;
+    # bu yerdagisi UMUMIY tom (shartnomadagi qiymat undan past bo'lishi mumkin).
+    "api_umumiy": (300, 60),       # bitta tashkilotning har xil so'rovlari
+    "api_savol": (60, 60),         # savol yuborish — tashkilot bo'yicha
+    "api_user": (20, 60),          # hamkorning BITTA mijozi bo'yicha
+    "api_kalit": (10, 300),        # noto'g'ri kalit bilan urinish (brute-force)
 }
 
 TOZALASH_S = 600                   # eskirgan kalitlarni tozalash oralig'i

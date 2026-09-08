@@ -1,0 +1,27 @@
+# Virtaks platformasi — konteyner bog'liqliklari (pinlangan).
+#
+# Ildizdagi requirements.txt OVOZLI STEND uchun (Azure/PyAudio) — bu yerga
+# aloqasi yo'q. Platformaga kerak bo'lmagan hech narsa qo'shilmaydi:
+# imijni kichik saqlash ham xavfsizlik, ham build tezligi masalasi.
+
+fastapi==0.139.2
+uvicorn==0.51.0
+pydantic==2.13.4
+python-multipart==0.0.20         # fayl yuklash (kabinet)
+
+psycopg[binary]==3.2.13
+psycopg_pool==3.2.7
+pgvector==0.4.2
+numpy==2.4.6                     # pgvector adapteri
+
+boto3==1.42.4                    # S3/MinIO
+google-genai==2.12.1             # Gemini
+rank-bm25==0.2.2                 # BM25 (RRF ning ikkinchi oyog'i)
+requests==2.34.2
+httpx==0.28.1                    # fastapi.testclient (sinov_paylov)
+trafilatura==2.0.0               # URL manbalarini o'qish
+python-dotenv==1.2.2
+argon2-cffi==25.1.0              # parol xeshi (zaxira kirish)
+openpyxl==3.1.5                  # Excel shablonlar
+python-docx==1.1.2               # .docx manbalar
+pymupdf==1.28.0                  # PDF -> sahifa rasmlari

@@ -155,6 +155,15 @@ def _zaxira(job: dict, yoz):
     return zaxira.bajar(job, yoz)
 
 
+@handler("b2b_tozala")
+def _b2b_tozala(job: dict, yoz):
+    """Eskirgan B2B idempotentlik yozuvlarini o'chiradi (kunlik)."""
+    from . import b2b
+    n = b2b.idempotent_tozala()
+    yoz(f"{n} ta eskirgan idempotentlik yozuvi o'chirildi")
+    return {"ochirilgan": n}
+
+
 # ---------------------------------------------------------------- asosiy sikl
 
 def bitta_job() -> bool:
@@ -257,6 +266,7 @@ def _davriy_ish(oxirgi: float) -> float:
         _navbatga("vazifa_eslatma", "55 minutes", 7, 300)
         _navbatga("maqsad_eslatma", "20 hours", 8, 300)
         _navbatga("zaxira", "6 days", 8, zaxira_muhlat())
+        _navbatga("b2b_tozala", "20 hours", 9, 120)
     except Exception as e:                                   # noqa: BLE001
         log(f"davriy ish navbatga qo'yilmadi: {str(e)[:100]}")
     return time.time()
@@ -274,6 +284,8 @@ def main():
     args = p.parse_args()
 
     pg.migratsiya()
+    from . import storage
+    storage.baket_yumshoq()
     log(f"WORKER ishga tushdi ({len(HANDLERLAR)} handler: {', '.join(HANDLERLAR)})")
 
     oxirgi_reaper = 0.0

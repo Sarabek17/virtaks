@@ -1,0 +1,31 @@
+# =============================================================================
+#  Lokal sinov ustqurmasi — dropletga tegmasdan butun stekni tekshirish uchun.
+#
+#      cd joylash
+#      cp env.namuna .env        # PG_PAROL, S3_MAXFIY ni istalgan qiymat bilan
+#      docker compose -f docker-compose.yml -f sinov.override.yml up -d db minio web ishchi
+#      curl http://127.0.0.1:58900/salomatlik
+#      docker compose -f docker-compose.yml -f sinov.override.yml down -v
+#
+#  `caddy` ATAYLAB ishga tushirilmaydi: lokalda Let's Encrypt sertifikat
+#  bera olmaydi (domen bu kompyuterga qaramaydi) va u 80/443 ni band qilardi.
+#  Shuning uchun yuqoridagi buyruqda servislar nomma-nom ko'rsatilgan.
+#
+#  Portlar 5xxxx ga surilgan — ishchi kompyuterda odatda 5432 va 9000 band
+#  bo'ladi (boshqa loyihalarning Postgres/MinIO konteynerlari).
+#
+#  DIQQAT: bu stek O'Z bazasini ko'taradi, prod bazaga ULANMAYDI. Aynan shu
+#  bilan `python -m platforma.web` ni lokal ishga tushirishdan farq qiladi
+#  (u .env.platforma orqali PROD bazaga ulanadi — CLAUDE.md ogohlantirishi).
+# =============================================================================
+services:
+  db:
+    ports: !override
+      - "127.0.0.1:55432:5432"
+  minio:
+    ports: !override
+      - "127.0.0.1:59000:9000"
+      - "127.0.0.1:59001:9001"
+  web:
+    ports:
+      - "127.0.0.1:58900:8900"

@@ -8,7 +8,7 @@ from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
-from . import auth, db, pg, pul, tolov
+from . import auth, b2b, db, pg, pul, tolov
 
 router = APIRouter(prefix="/api/admin")
 COOKIE = "twin_sessiya"
@@ -608,3 +608,220 @@ def narx_yoz(s: NarxKirish, request: Request):
         s.model.strip()[:60], s.kirish_1m_usd, s.chiqish_1m_usd)
     pul._narx_kesh["vaqt"] = 0.0      # keshni bo'shatamiz
     return {"ok": True}
+
+
+# ---------------------------------------------------------------- B2B (hamkorlar)
+# Reja: B2B_API_REJA.md. Bu yuzada `ustama` va tannarx KO'RINADI — u faqat
+# adminga, hamkorga hech qachon chiqmaydi (`api_v1` ni qarang).
+
+
+class TashkilotKirish(BaseModel):
+    nom: str
+    slug: str
+    aloqa_email: str = ""
+    aloqa_tg: int | None = None
+    ustama: float = 3.0
+    kredit_chegara_usd: float = 0
+    ogohlantirish_usd: float = 5
+    oqim_limit: int = 5
+    daqiqa_limit: int = 60
+    oylik_chegara_usd: float = 0
+    izoh: str = ""
+
+
+class TashkilotYangi(BaseModel):
+    ustama: float | None = None
+    kredit_chegara_usd: float | None = None
+    ogohlantirish_usd: float | None = None
+    oqim_limit: int | None = None
+    daqiqa_limit: int | None = None
+    oylik_chegara_usd: float | None = None
+    faol: bool | None = None
+    izoh: str | None = None
+
+
+class BalansKirish(BaseModel):
+    summa_usd: float
+    izoh: str = ""
+
+
+class KalitKirish(BaseModel):
+    nom: str = ""
+    huquqlar: list[str] | None = None
+    ip_oq: list[str] | None = None
+
+
+@router.get("/tashkilotlar")
+def tashkilotlar(request: Request):
+    if not _admin(request):
+        return _403()
+    return pg.hammasi_d(
+        """SELECT t.*,
+                  (SELECT count(*) FROM api_kalitlar k
+                    WHERE k.tashkilot_id=t.id AND k.faol) AS kalitlar,
+                  (SELECT count(*) FROM userlar u WHERE u.tashkilot_id=t.id) AS mijozlar,
+                  (SELECT COALESCE(sum(x.hisob_usd),0) FROM xarajatlar x
+                    WHERE x.tashkilot_id=t.id
+                      AND x.vaqt >= date_trunc('month', now())) AS oylik_hisob,
+                  -- UI dagi belgilash uchun: qaysi twinlar ochilgan
+                  COALESCE((SELECT array_agg(tt.twin_id) FROM tashkilot_twin tt
+                             WHERE tt.tashkilot_id=t.id AND tt.faol), '{}') AS twin_ids
+           FROM tashkilotlar t ORDER BY t.id DESC""")
+
+
+@router.post("/tashkilot")
+def tashkilot_yasa(s: TashkilotKirish, request: Request):
+    if not _admin(request):
+        return _403()
+    if pg.bitta("SELECT 1 FROM tashkilotlar WHERE slug=%s", s.slug.strip().lower()):
+        return JSONResponse({"xato": "bunday slug bor"}, status_code=409)
+    return b2b.tashkilot_yasa(s.nom, s.slug, **s.model_dump(exclude={"nom", "slug"}))
+
+
+@router.put("/tashkilot/{tid}")
+def tashkilot_yangila(tid: int, s: TashkilotYangi, request: Request):
+    """Faqat oq ro'yxatdagi maydonlar. `balans_usd` BU YERDAN o'zgarmaydi —
+    balans faqat `balans_harakat` daftari orqali (audit izi uzilmasin)."""
+    if not _admin(request):
+        return _403()
+    maydon = {k: v for k, v in s.model_dump().items() if v is not None}
+    if not maydon:
+        return {"ok": True}
+    tayin = ", ".join(f"{k}=%s" for k in maydon)
+    r = pg.bitta_d(f"UPDATE tashkilotlar SET {tayin} WHERE id=%s RETURNING *",
+                   *maydon.values(), tid)
+    if not r:
+        return _404_t()
+    return r
+
+
+@router.post("/tashkilot/{tid}/balans")
+def tashkilot_balans(tid: int, s: BalansKirish, request: Request):
+    """Qo'lda to'ldirish (bank o'tkazmasidan keyin) yoki tuzatish."""
+    u = _admin(request)
+    if not u:
+        return _403()
+    if not b2b.tashkilot_ol(tid):
+        return _404_t()
+    if s.summa_usd == 0:
+        return JSONResponse({"xato": "summa 0"}, status_code=400)
+    tur = "toldirish" if s.summa_usd > 0 else "tuzatish"
+    izoh = (s.izoh or "")[:180] + f" (admin #{u['id']})"
+    qoldiq = b2b.balans_harakat(tid, tur, s.summa_usd, izoh=izoh)
+    return {"ok": True, "balans_usd": qoldiq}
+
+
+@router.get("/tashkilot/{tid}/harakatlar")
+def tashkilot_harakatlar(tid: int, request: Request):
+    if not _admin(request):
+        return _403()
+    return b2b.harakatlar(tid, 200)
+
+
+@router.get("/tashkilot/{tid}/marja")
+def tashkilot_marja(tid: int, request: Request, kun: int = 30):
+    """Tannarx va hisob farqi — FAQAT admin ko'radi."""
+    if not _admin(request):
+        return _403()
+    r = pg.bitta_d(
+        """SELECT COALESCE(sum(narx_usd),0) AS tannarx,
+                  COALESCE(sum(hisob_usd),0) AS hisob,
+                  count(*) AS chaqiruv
+           FROM xarajatlar
+           WHERE tashkilot_id=%s AND vaqt > now() - (%s || ' days')::interval""",
+        tid, kun)
+    tannarx, hisob = float(r["tannarx"]), float(r["hisob"])
+    return {"kun": kun, "chaqiruv": r["chaqiruv"],
+            "tannarx_usd": round(tannarx, 4), "hisob_usd": round(hisob, 4),
+            "marja_usd": round(hisob - tannarx, 4),
+            "marja_foiz": round((hisob - tannarx) / hisob * 100, 1) if hisob else 0}
+
+
+@router.get("/tashkilot/{tid}/kalitlar")
+def tashkilot_kalitlar(tid: int, request: Request):
+    """Kalitlar ro'yxati. XESH VA OCHIQ KALIT QAYTMAYDI — faqat prefiks."""
+    if not _admin(request):
+        return _403()
+    return pg.hammasi_d(
+        """SELECT id, nom, prefiks, huquqlar, ip_oq, faol, muddat,
+                  oxirgi_ishlatilgan, yaratilgan
+           FROM api_kalitlar WHERE tashkilot_id=%s ORDER BY id DESC""", tid)
+
+
+@router.post("/tashkilot/{tid}/kalit")
+def tashkilot_kalit(tid: int, s: KalitKirish, request: Request):
+    """Yangi kalit. OCHIQ KALIT FAQAT SHU JAVOBDA — qayta ko'rsatilmaydi."""
+    u = _admin(request)
+    if not u:
+        return _403()
+    if not b2b.tashkilot_ol(tid):
+        return _404_t()
+    ochiq, y = b2b.kalit_yasa(tid, s.nom, s.huquqlar, s.ip_oq,
+                              yaratgan_id=u["id"])
+    return {"kalit": ochiq, "id": y["id"], "prefiks": y["prefiks"],
+            "ogoh": "Bu kalit boshqa ko'rsatilmaydi — hoziroq nusxa oling."}
+
+
+@router.delete("/kalit/{kid}")
+def kalit_ochir(kid: int, request: Request):
+    if not _admin(request):
+        return _403()
+    b2b.kalit_ochir(kid)
+    return {"ok": True}
+
+
+@router.post("/tashkilot/{tid}/twin/{twin_id}")
+def tashkilot_twin_qosh(tid: int, twin_id: int, request: Request):
+    if not _admin(request):
+        return _403()
+    if not b2b.tashkilot_ol(tid) or not db.twin_ol(twin_id):
+        return _404_t()
+    b2b.twin_qosh(tid, twin_id)
+    return {"ok": True}
+
+
+@router.delete("/tashkilot/{tid}/twin/{twin_id}")
+def tashkilot_twin_ochir(tid: int, twin_id: int, request: Request):
+    if not _admin(request):
+        return _403()
+    b2b.twin_ochir(tid, twin_id)
+    return {"ok": True}
+
+
+@router.get("/tashkilot/{tid}/hisobot")
+def tashkilot_hisobot(tid: int, request: Request, oy: str = ""):
+    """Hamkorga yuboriladigan oylik hisob (admin ko'rinishi)."""
+    if not _admin(request):
+        return _403()
+    if not b2b.tashkilot_ol(tid):
+        return _404_t()
+    return b2b.hisobot(tid, oy)
+
+
+class RoyaltiKirish(BaseModel):
+    foiz: float
+
+
+@router.get("/royalti")
+def royalti(request: Request, kun: int = 30):
+    """Twin egalariga tegadigan ulush. Asos — B2B DAROMADI (hisob_usd)."""
+    if not _admin(request):
+        return _403()
+    q = b2b.royalti(kun)
+    return {"kun": kun, "royxat": q,
+            "jami_ulush_usd": round(sum(float(x["ulush_usd"] or 0) for x in q), 4)}
+
+
+@router.put("/twin/{twin_id}/royalti")
+def twin_royalti(twin_id: int, s: RoyaltiKirish, request: Request):
+    if not _admin(request):
+        return _403()
+    if not 0 <= s.foiz <= 100:
+        return JSONResponse({"xato": "foiz 0-100 oralig'ida"}, status_code=400)
+    r = pg.bitta_d("UPDATE twinlar SET royalti_foiz=%s WHERE id=%s RETURNING id, nom, royalti_foiz",
+                   s.foiz, twin_id)
+    return r or _404_t()
+
+
+def _404_t():
+    return JSONResponse({"xato": "topilmadi"}, status_code=404)

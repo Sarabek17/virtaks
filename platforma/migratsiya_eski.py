@@ -305,6 +305,31 @@ def userlar_kochir(db_yol: Path, twin_xarita: dict, chiqish: Path | None = None)
     s.close()
 
 
+def hisob():
+    """Ko'chirishdan keyin nima tushganini sanab ko'rsatadi.
+
+    Migratsiya jimgina 'TUGADI' deb tugaganda hammasi joyidami yoki
+    yarmi tushib qolganmi bilinmasdi — endi raqamlar ko'rinadi.
+    """
+    q = lambda s: pg.bitta(s)[0]                             # noqa: E731
+    log("--- natija ---")
+    for nom, sql in (
+            ("twinlar", "SELECT count(*) FROM twinlar"),
+            ("direktorlar", "SELECT count(*) FROM direktorlar"),
+            ("manbalar", "SELECT count(*) FROM manbalar"),
+            ("bolaklar", "SELECT count(*) FROM bolaklar"),
+            ("  vektorli", "SELECT count(*) FROM bolaklar WHERE embedding IS NOT NULL"),
+            ("shablonlar", "SELECT count(*) FROM shablonlar"),
+            ("diag_savollar", "SELECT count(*) FROM diag_savollar"),
+            ("userlar", "SELECT count(*) FROM userlar"),
+            ("suhbatlar", "SELECT count(*) FROM suhbatlar"),
+            ("majlislar", "SELECT count(*) FROM majlislar")):
+        try:
+            log(f"  {nom:12}: {q(sql)}")
+        except Exception as e:                               # noqa: BLE001
+            log(f"  {nom:12}: o'qilmadi ({str(e)[:60]})")
+
+
 def main():
     p = argparse.ArgumentParser()
     p.add_argument("--bilim", action="store_true", help="faqat twin/bilim")
@@ -325,6 +350,7 @@ def main():
     if not args.bilim:
         userlar_kochir(Path(args.db), xarita,
                        Path(args.chiqish) if args.chiqish else None)
+    hisob()
     log("MIGRATSIYA TUGADI")
 
 

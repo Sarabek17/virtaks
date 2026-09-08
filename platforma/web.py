@@ -13,7 +13,8 @@ from fastapi.responses import (FileResponse, JSONResponse, Response,
                                StreamingResponse)
 from pydantic import BaseModel
 
-from . import (admin, aniqlik, auth, cheklov, db, fragment, jobs, kabinet,
+from . import (admin, aniqlik, api_v1, auth, cheklov, db, fragment,
+               jobs, kabinet,
                maqsad, maqsad_oqim, mentor, monitoring, oquv, pg, pochta,
                profil, pul, skilllar, storage, suhbat, tanishuv, tg, tizim,
                tizim_oqim, tolov, vazifa, yordamchi)
@@ -23,6 +24,9 @@ app = FastAPI(title="Virtaks platformasi")
 app.include_router(admin.router)
 app.include_router(kabinet.router)
 app.include_router(tolov.router)
+# B2B API — ALOHIDA yuza: cookie sessiyasiga qaramaydi, faqat API kaliti
+# bilan ishlaydi (`b2b.tekshir`). Reja: B2B_API_REJA.md
+app.include_router(api_v1.router)
 WEB = ILDIZ / "web"
 COOKIE = "twin_sessiya"
 BOSHLANGAN = time.time()
@@ -2040,6 +2044,7 @@ def statik(nom: str):
 def main():
     import uvicorn
     pg.migratsiya()
+    storage.baket_yumshoq()
     tg.webhook_ornat()
     port = int(os.environ.get("PORT", "8900"))
     host = "0.0.0.0" if os.environ.get("PORT") else "127.0.0.1"

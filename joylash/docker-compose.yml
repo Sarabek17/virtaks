@@ -1,0 +1,182 @@
+# =============================================================================
+#  Virtaks — DigitalOcean droplet steki
+#
+#    caddy   → 80/443, avtomatik Let's Encrypt sertifikati
+#    web     → FastAPI (platforma.web), faqat ichki tarmoqda
+#    ishchi  → fon jarayonlari (platforma.worker)
+#    db      → PostgreSQL 18 + pgvector
+#    minio   → S3-mos fayl ombori
+#
+#  Tashqariga FAQAT caddy chiqadi. db va minio host portlari ataylab
+#  127.0.0.1 ga bog'langan: SSH tunnel orqali xizmat ko'rsatish mumkin,
+#  internetdan esa umuman ko'rinmaydi.
+#
+#  Buyruqlar shu papkadan turib beriladi:
+#    docker compose up -d --build
+#    docker compose logs -f web
+# =============================================================================
+name: virtaks
+
+x-jurnal: &jurnal
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "5"
+
+# web va ishchi uchun umumiy qism. `build` ATAYLAB bu yerda emas: YAML
+# birlashtirish (<<) ichki lug'atni qo'shmaydi, ALMASHTIRADI — nishon
+# (target) har servisda o'zicha yozilishi shart.
+x-ilova: &ilova
+  restart: unless-stopped
+  init: true                       # zombi jarayon qolmasin (ffmpeg/soffice)
+  env_file: [.env]
+  environment:
+    # Jonli muhit bayrog'i. Buni O'CHIRISH parolsiz "dev" kirishni ochib
+    # yuborishi mumkin (auth.dev_rejim) — hech qachon o'zgartirilmaydi.
+    PROD: "1"
+    TZ: Asia/Tashkent
+    PORT: "8900"
+    PG_URL: postgresql://${PG_USER}:${PG_PAROL}@db:5432/${PG_BAZA}
+    # Konteynerlar tarmog'idagi nom. sozlama.py PROD=1 da aynan S3_ENDPOINT ni
+    # o'qiydi (S3_ENDPOINT_TASHQI emas) — lokal va jonli sozlama chalkashmasin.
+    S3_ENDPOINT: http://minio:9000
+    S3_KIRISH: ${S3_KIRISH}
+    S3_MAXFIY: ${S3_MAXFIY}
+    S3_BAKET: ${S3_BAKET:-kengash}
+  networks: [ichki]
+  logging: *jurnal
+  depends_on:
+    db:
+      condition: service_healthy
+    minio:
+      condition: service_healthy
+
+services:
+
+  # --------------------------------------------------------------- caddy
+  caddy:
+    image: caddy:2-alpine
+    container_name: virtaks-caddy
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"            # HTTP/3
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data          # sertifikatlar SHU YERDA — o'chirilmasin
+      - caddy_config:/config
+    environment:
+      DOMEN: ${DOMEN}
+      ACME_EMAIL: ${ACME_EMAIL}
+    networks: [ichki]
+    logging: *jurnal
+    depends_on: [web]
+
+  # ----------------------------------------------------------------- web
+  web:
+    <<: *ilova
+    build:
+      context: ..
+      dockerfile: joylash/Dockerfile
+      target: web
+    image: virtaks-web:joriy
+    container_name: virtaks-web
+    expose: ["8900"]
+
+  # -------------------------------------------------------------- ishchi
+  ishchi:
+    <<: *ilova
+    build:
+      context: ..
+      dockerfile: joylash/Dockerfile
+      target: ishchi
+    image: virtaks-ishchi:joriy
+    container_name: virtaks-ishchi
+    # LibreOffice va ffmpeg xotirani ko'p oladi; cheklov bo'lmasa bitta
+    # og'ir ingest butun dropletni (web bilan birga) OOM ga olib boradi.
+    mem_limit: 2g
+
+  # ------------------------------------------------------------------ db
+  db:
+    image: pgvector/pgvector:pg18
+    container_name: virtaks-db
+    restart: unless-stopped
+    shm_size: 256mb
+    environment:
+      POSTGRES_DB: ${PG_BAZA}
+      POSTGRES_USER: ${PG_USER}
+      POSTGRES_PASSWORD: ${PG_PAROL}
+      TZ: Asia/Tashkent
+    # 4 GB dropletga mo'ljallangan. maintenance_work_mem HNSW indeksini
+    # qurish uchun muhim: kichik bo'lsa indeks diskda qurilib, soatlab cho'ziladi.
+    command:
+      - postgres
+      - -c
+      - shared_buffers=512MB
+      - -c
+      - effective_cache_size=1536MB
+      - -c
+      - maintenance_work_mem=256MB
+      - -c
+      - work_mem=16MB
+      - -c
+      - max_connections=100
+      - -c
+      - log_min_duration_statement=2000
+    volumes:
+      # DIQQAT: yo'l ATAYLAB `/data` siz. PostgreSQL 18 dan boshlab rasmiy
+      # Docker imiji ma'lumotni `/var/lib/postgresql/<versiya>/docker` ichida
+      # saqlaydi (pg_upgrade --link mount chegarasiga urilmasin deb). Volume
+      # eski odat bo'yicha `/var/lib/postgresql/data` ga ulansa, konteyner
+      # "there appears to be PostgreSQL data in ... (unused mount/volume)"
+      # deb ishga tushishdan BOSH TORTADI va cheksiz qayta ko'tariladi.
+      - pgdata:/var/lib/postgresql
+    ports:
+      - "127.0.0.1:5432:5432"     # faqat droplet ichidan (SSH tunnel)
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+    networks: [ichki]
+    logging: *jurnal
+
+  # --------------------------------------------------------------- minio
+  # Teg ataylab `latest` emas — ombor formati o'zgargan relizda ma'lumot
+  # ko'chirilishi kerak bo'ladi. Birinchi muvaffaqiyatli deploydan keyin
+  # `docker inspect minio/minio --format '{{index .RepoDigests 0}}'` bilan
+  # digest ni olib, shu yerga qotirib qo'ying.
+  minio:
+    image: minio/minio:latest
+    container_name: virtaks-minio
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${S3_KIRISH}
+      MINIO_ROOT_PASSWORD: ${S3_MAXFIY}
+      TZ: Asia/Tashkent
+    volumes:
+      - miniodata:/data
+    ports:
+      - "127.0.0.1:9000:9000"     # S3 API — ko'chirish (mc mirror) uchun
+      - "127.0.0.1:9001:9001"     # konsol — SSH tunnel orqali
+    healthcheck:
+      test: ["CMD-SHELL", "mc ready local || exit 1"]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+      start_period: 30s
+    networks: [ichki]
+    logging: *jurnal
+
+volumes:
+  pgdata:
+  miniodata:
+  caddy_data:
+  caddy_config:
+
+networks:
+  ichki:
+    driver: bridge
