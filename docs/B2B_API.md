@@ -6,6 +6,11 @@ javob **faqat o'sha ustozning darslariga tayanib** yoziladi va har da'voda
 manbaga iqtibos bo'ladi.
 
 - **Manzil**: `https://twin.virtaks.uz/api/v1`
+- **Hujjat (Swagger)**: https://twin.virtaks.uz/api/v1/docs
+
+> Endpoint manzillari inglizcha (`/ask`, `/mentors`, ...). Ilgari berilgan
+> o'zbekcha manzillar (`/savol`, `/twinlar`, ...) **ishlashda davom etadi** —
+> ulangan integratsiyangizni o'zgartirish shart emas.
 - **Format**: JSON (UTF-8)
 - **Autentifikatsiya**: `Authorization: Bearer <kalit>`
 
@@ -31,7 +36,7 @@ Integratsiyani tekshirish (pul sarflamaydi):
 
 ```bash
 curl -H "Authorization: Bearer $VIRTAKS_KALIT" \
-     https://twin.virtaks.uz/api/v1/salomatlik
+     https://twin.virtaks.uz/api/v1/health
 ```
 
 ```json
@@ -44,7 +49,7 @@ curl -H "Authorization: Bearer $VIRTAKS_KALIT" \
 
 ```bash
 curl -H "Authorization: Bearer $VIRTAKS_KALIT" \
-     https://twin.virtaks.uz/api/v1/twinlar
+     https://twin.virtaks.uz/api/v1/mentors
 ```
 
 ```json
@@ -64,7 +69,7 @@ Har mijozingizga o'z ichki ID ingizni bering — biz suhbat tarixini,
 profilni va iqtiboslarni shu bo'yicha ajratamiz.
 
 ```bash
-curl -X POST https://twin.virtaks.uz/api/v1/foydalanuvchi \
+curl -X POST https://twin.virtaks.uz/api/v1/customer \
   -H "Authorization: Bearer $VIRTAKS_KALIT" \
   -H "Content-Type: application/json" \
   -d '{"tashqi_id": "user-8891", "ism": "Aziz"}'
@@ -90,7 +95,7 @@ Ikki rejim bor. Boshlash uchun **`oqim: false`** qulayroq.
 ### 4.1. To'liq javob (`oqim: false`)
 
 ```bash
-curl -X POST https://twin.virtaks.uz/api/v1/savol \
+curl -X POST https://twin.virtaks.uz/api/v1/ask \
   -H "Authorization: Bearer $VIRTAKS_KALIT" \
   -H "Content-Type: application/json" \
   -H "Idempotency-Key: 5f1c8e0a-2b41-4c9e-9f3a-77d0c1e2b845" \
@@ -173,10 +178,10 @@ gaplarni hisobga oladi:
 
 ```bash
 curl -H "Authorization: Bearer $VIRTAKS_KALIT" \
-  "https://twin.virtaks.uz/api/v1/suhbatlar?tashqi_id=user-8891"
+  "https://twin.virtaks.uz/api/v1/conversations?tashqi_id=user-8891"
 
 curl -H "Authorization: Bearer $VIRTAKS_KALIT" \
-  https://twin.virtaks.uz/api/v1/suhbat/1204
+  https://twin.virtaks.uz/api/v1/conversation/1204
 ```
 
 ---
@@ -188,7 +193,7 @@ kesib olish mumkin:
 
 ```bash
 curl -X POST -H "Authorization: Bearer $VIRTAKS_KALIT" \
-  https://twin.virtaks.uz/api/v1/bolak/88213/fragment
+  https://twin.virtaks.uz/api/v1/chunk/88213/fragment
 ```
 
 ```json
@@ -205,7 +210,7 @@ beriladi — bog'laning.
 
 ```bash
 curl -H "Authorization: Bearer $VIRTAKS_KALIT" \
-     https://twin.virtaks.uz/api/v1/hisob
+     https://twin.virtaks.uz/api/v1/account
 ```
 
 ```json
@@ -234,7 +239,7 @@ emas.
 
 ```bash
 curl -H "Authorization: Bearer $VIRTAKS_KALIT" \
-     "https://twin.virtaks.uz/api/v1/hisobot?oy=2026-09"
+     "https://twin.virtaks.uz/api/v1/report?oy=2026-09"
 ```
 
 ```json
@@ -324,7 +329,7 @@ BOSH = {"Authorization": f"Bearer {os.environ['VIRTAKS_KALIT']}"}
 
 
 def sora(tashqi_id: str, savol: str, suhbat: int | None = None) -> dict:
-    r = requests.post(f"{ASOS}/savol", headers=BOSH, timeout=120, json={
+    r = requests.post(f"{ASOS}/ask", headers=BOSH, timeout=120, json={
         "tashqi_id": tashqi_id, "savol": savol,
         "suhbat": suhbat, "oqim": False,
     })

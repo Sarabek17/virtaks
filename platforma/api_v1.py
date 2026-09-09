@@ -30,6 +30,17 @@ from .sozlama import log
 
 router = APIRouter(prefix="/api/v1")
 
+# --- Har endpointning IKKI manzili bor ---------------------------------------
+# Asosiy manzil INGLIZCHA (/ask, /mentors, ...) — hamkorlar xalqaro, hujjat ham
+# shu nomlar bilan chiqadi. O'zbekchasi (/savol, /twinlar, ...) esa
+# `include_in_schema=False` bilan yonida turadi: sxemada KO'RINMAYDI, lekin
+# ishlayveradi.
+#
+# O'zbekcha manzillar O'CHIRILMAYDI — ular allaqachon e'lon qilingan
+# (`docs/B2B_API.md`) va ulangan hamkorning kodini buzardi. Bu ilova ichidagi
+# `twin`/`suhbat` atamalariga tegmaydi: jadval nomlari, funksiya nomlari va
+# ichki API (`/api/twin/...`) o'zbekcha qoladi (CLAUDE.md, «Til qoidasi»).
+
 SAVOL_MAKS = 4000
 INGEST_MUHLAT = 4 * 3600
 
@@ -153,7 +164,8 @@ class FoydalanuvchiSorov(BaseModel):
     ism: str = ""
 
 
-@router.post("/foydalanuvchi", summary="Mijozni ro'yxatga olish")
+@router.post("/customer", summary="Register a customer")
+@router.post("/foydalanuvchi", include_in_schema=False)
 def foydalanuvchi(s: FoydalanuvchiSorov, request: Request):
     """Hamkorning mijozini ro'yxatga oladi (idempotent)."""
     k, xato = _kirish(request, "savol")
@@ -168,7 +180,8 @@ def foydalanuvchi(s: FoydalanuvchiSorov, request: Request):
 
 # ------------------------------------------------------------------ twinlar
 
-@router.get("/twinlar", summary="Ochiq ustozlar ro'yxati")
+@router.get("/mentors", summary="List available mentors")
+@router.get("/twinlar", include_in_schema=False)
 def twinlar(request: Request):
     k, xato = _kirish(request, "twinlar")
     if xato:
@@ -188,7 +201,8 @@ class SavolSorov(BaseModel):
     ism: str = ""
 
 
-@router.post("/savol", summary="Savol berish — asosiy endpoint")
+@router.post("/ask", summary="Ask a question - main endpoint")
+@router.post("/savol", include_in_schema=False)
 def savol(s: SavolSorov, request: Request):
     """Asosiy endpoint: savol -> manbaga tayangan javob + iqtiboslar."""
     k, xato = _kirish(request, "savol")
@@ -313,7 +327,8 @@ def _toliq_javob(hodisalar, toxtat, sem, k, sid: int, idem: str):
 
 # ----------------------------------------------------------------- suhbatlar
 
-@router.get("/suhbatlar", summary="Mijozning suhbatlari")
+@router.get("/conversations", summary="List customer conversations")
+@router.get("/suhbatlar", include_in_schema=False)
 def suhbatlar(request: Request, tashqi_id: str = ""):
     k, xato = _kirish(request, "suhbat")
     if xato:
@@ -330,7 +345,8 @@ def suhbatlar(request: Request, tashqi_id: str = ""):
                        for q in db.suhbatlar(u["id"])]}
 
 
-@router.get("/suhbat/{sid}", summary="Bitta suhbat tarixi")
+@router.get("/conversation/{sid}", summary="Get one conversation")
+@router.get("/suhbat/{sid}", include_in_schema=False)
 def suhbat(sid: int, request: Request):
     k, xato = _kirish(request, "suhbat")
     if xato:
@@ -354,7 +370,8 @@ def suhbat(sid: int, request: Request):
 
 # ------------------------------------------------------------------ fragment
 
-@router.post("/bolak/{bid}/fragment", summary="Audio fragment tayyorlash")
+@router.post("/chunk/{bid}/fragment", summary="Request an audio fragment")
+@router.post("/bolak/{bid}/fragment", include_in_schema=False)
 def bolak_fragment(bid: int, request: Request):
     """Iqtibosning audio kesmasini tayyorlashni buyuradi."""
     k, xato = _kirish(request, "fragment")
@@ -383,7 +400,8 @@ def bolak_fragment(bid: int, request: Request):
 
 # --------------------------------------------------------------------- hisob
 
-@router.get("/hisob", summary="Balans va sarf")
+@router.get("/account", summary="Balance and usage")
+@router.get("/hisob", include_in_schema=False)
 def hisob(request: Request):
     k, xato = _kirish(request, "hisob")
     if xato:
@@ -397,7 +415,8 @@ def hisob(request: Request):
     return natija
 
 
-@router.get("/hisobot", summary="Oylik hisobot")
+@router.get("/report", summary="Monthly report")
+@router.get("/hisobot", include_in_schema=False)
 def hisobot(request: Request, oy: str = ""):
     """Oylik hisob-faktura: `?oy=2026-09` (bo'sh — joriy oy)."""
     k, xato = _kirish(request, "hisob")
@@ -406,7 +425,8 @@ def hisobot(request: Request, oy: str = ""):
     return b2b.hisobot(k.tashkilot_id, oy)
 
 
-@router.get("/salomatlik", summary="Ulanishni tekshirish — bepul")
+@router.get("/health", summary="Health check - free")
+@router.get("/salomatlik", include_in_schema=False)
 def salomatlik(request: Request):
     """Hamkor integratsiyani tekshirishi uchun — pul sarflamaydi."""
     k, xato = _kirish(request, "hisob")
