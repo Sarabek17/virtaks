@@ -12,7 +12,10 @@ Nima ko'chadi:
   4. userlar, suhbatlar, majlislar — kengash.db (SQLite) dan
 """
 import argparse
+import gzip
 import json
+import os
+import struct
 import re
 import sqlite3
 import sys
@@ -21,7 +24,10 @@ from pathlib import Path
 from . import db, pg
 from .sozlama import log
 
-ESKI = Path(r"E:\NewOffice\Labaratoriya\VoIpTelefoniya\kengash")
+# Manba papkasi. Standart — ishlab chiqish kompyuteridagi joy; serverda
+# (konteynerda) `KENGASH_YOL` bilan boshqa joy ko'rsatiladi.
+ESKI = Path(os.environ.get(
+    "KENGASH_YOL", r"E:\NewOffice\Labaratoriya\VoIpTelefoniya\kengash"))
 KANONIK = ESKI / "kanonik"
 PERSONAS = ESKI / "personas"
 BAZA = ESKI / "baza"
@@ -107,6 +113,44 @@ def direktorlar_yarat():
 
 # ---------------------------------------------------------------- 3. bilim
 
+VEKTOR_FAYL = "vektorlar.bin.gz"
+
+
+def vektor_yoz(xarita: dict, yol: Path):
+    """Vektorlarni PORTATIV faylga yozadi (bir marta, ishlab chiqish mashinasida).
+
+    Format ataylab oddiy: har yozuv — <H id_uzunligi><id><N x float32>.
+    O'qish uchun faqat `gzip` va `struct` kerak, ya'ni serverdagi imijga
+    `qdrant_client` o'rnatish shart emas (u faqat SHU bir martalik ish
+    uchun kerak edi).
+    """
+    yol.parent.mkdir(parents=True, exist_ok=True)
+    n = 0
+    with gzip.open(yol, "wb", compresslevel=6) as f:
+        for bid, vek in xarita.items():
+            xom = bid.encode("utf-8")
+            f.write(struct.pack("<HI", len(xom), len(vek)))
+            f.write(xom)
+            f.write(struct.pack(f"<{len(vek)}f", *vek))
+            n += 1
+    log(f"vektorlar yozildi: {yol} — {n} ta, {yol.stat().st_size / 1e6:.1f} MB")
+
+
+def vektor_oqi(yol: Path) -> dict:
+    """Portativ fayldan {bo'lak_id: vektor}."""
+    xarita = {}
+    with gzip.open(yol, "rb") as f:
+        while True:
+            bosh = f.read(6)
+            if not bosh:
+                break
+            id_uz, vek_uz = struct.unpack("<HI", bosh)
+            bid = f.read(id_uz).decode("utf-8")
+            xarita[bid] = list(struct.unpack(f"<{vek_uz}f", f.read(vek_uz * 4)))
+    log(f"portativ fayldan {len(xarita)} vektor o'qildi")
+    return xarita
+
+
 def _qdrant_vektorlar() -> dict:
     """Eski Qdrant'dan {bo'lak_id: vektor} — qayta embedding qilmaslik uchun."""
     from qdrant_client import QdrantClient
@@ -126,12 +170,13 @@ def _qdrant_vektorlar() -> dict:
     return xarita
 
 
-def bilim_kochir(twin_xarita: dict):
+def bilim_kochir(twin_xarita: dict, vektor_fayl: Path | None = None):
     bor = pg.bitta("SELECT count(*) FROM bolaklar")[0]
     if bor:
         log(f"bolaklar jadvalida allaqachon {bor} yozuv bor — bilim o'tkazib yuborildi")
         return
-    vektorlar = _qdrant_vektorlar()
+    vektorlar = (vektor_oqi(vektor_fayl) if vektor_fayl
+                 else _qdrant_vektorlar())
 
     jami_b = 0
     for f in sorted(KANONIK.glob("*.jsonl")):
@@ -338,7 +383,16 @@ def main():
     p.add_argument("--db", default=str(BAZA / "kengash.db"), help="kengash.db yo'li")
     p.add_argument("--chiqish", default="",
                    help="majlis .md fayllari papkasi (standart: kengash/chiqish)")
+    p.add_argument("--vektor-fayl", default="",
+                   help="portativ vektor fayli (Qdrant o'rniga; serverda shu)")
+    p.add_argument("--eksport-vektor", default="",
+                   help="Qdrant'dagi vektorlarni portativ faylga yozib chiqish")
     args = p.parse_args()
+
+    # Eksport — bazaga umuman tegmaydi, faqat fayl yasaydi.
+    if args.eksport_vektor:
+        vektor_yoz(_qdrant_vektorlar(), Path(args.eksport_vektor))
+        return
 
     pg.migratsiya()
     # --tarix: mavjud twinlarni O'ZGARTIRMASDAN o'qiymiz (ruxsat matritsasi,
@@ -346,7 +400,8 @@ def main():
     xarita = twin_xaritasi() if args.tarix else twinlar_yarat()
     if not args.tarix:
         direktorlar_yarat()
-        bilim_kochir(xarita)
+        bilim_kochir(xarita, Path(args.vektor_fayl)
+                     if args.vektor_fayl else None)
     if not args.bilim:
         userlar_kochir(Path(args.db), xarita,
                        Path(args.chiqish) if args.chiqish else None)
