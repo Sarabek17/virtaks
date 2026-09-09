@@ -2040,6 +2040,7 @@ API_DOCS_CSP = "; ".join([
     "frame-ancestors 'none'",
 ])
 
+B2B_HUJJAT = ("/api/v1/docs", "/api/v1/openapi.json")
 _B2B_SXEMA = {}
 
 
@@ -2062,8 +2063,10 @@ def b2b_openapi() -> dict:
     if "spec" in _B2B_SXEMA:
         return _B2B_SXEMA["spec"]
     toliq = app.openapi()
+    # Hujjatning O'ZI ham /api/v1 ostida turadi — hamkorga u endpoint bo'lib
+    # ko'rinmasin (sxemada 9 ta emas, 11 ta yo'l chiqib qolardi).
     yollar = {k: v for k, v in toliq.get("paths", {}).items()
-              if k.startswith("/api/v1")}
+              if k.startswith("/api/v1") and k not in B2B_HUJJAT}
     # Sxemalar: shu yo'llardan havola qilinganlari va ularning ichkilari.
     # Bir aylanish yetmaydi — sxema ichida yana $ref bo'lishi mumkin.
     barcha = toliq.get("components", {}).get("schemas", {})

@@ -153,7 +153,7 @@ class FoydalanuvchiSorov(BaseModel):
     ism: str = ""
 
 
-@router.post("/foydalanuvchi")
+@router.post("/foydalanuvchi", summary="Mijozni ro'yxatga olish")
 def foydalanuvchi(s: FoydalanuvchiSorov, request: Request):
     """Hamkorning mijozini ro'yxatga oladi (idempotent)."""
     k, xato = _kirish(request, "savol")
@@ -168,7 +168,7 @@ def foydalanuvchi(s: FoydalanuvchiSorov, request: Request):
 
 # ------------------------------------------------------------------ twinlar
 
-@router.get("/twinlar")
+@router.get("/twinlar", summary="Ochiq ustozlar ro'yxati")
 def twinlar(request: Request):
     k, xato = _kirish(request, "twinlar")
     if xato:
@@ -188,7 +188,7 @@ class SavolSorov(BaseModel):
     ism: str = ""
 
 
-@router.post("/savol")
+@router.post("/savol", summary="Savol berish — asosiy endpoint")
 def savol(s: SavolSorov, request: Request):
     """Asosiy endpoint: savol -> manbaga tayangan javob + iqtiboslar."""
     k, xato = _kirish(request, "savol")
@@ -313,7 +313,7 @@ def _toliq_javob(hodisalar, toxtat, sem, k, sid: int, idem: str):
 
 # ----------------------------------------------------------------- suhbatlar
 
-@router.get("/suhbatlar")
+@router.get("/suhbatlar", summary="Mijozning suhbatlari")
 def suhbatlar(request: Request, tashqi_id: str = ""):
     k, xato = _kirish(request, "suhbat")
     if xato:
@@ -330,7 +330,7 @@ def suhbatlar(request: Request, tashqi_id: str = ""):
                        for q in db.suhbatlar(u["id"])]}
 
 
-@router.get("/suhbat/{sid}")
+@router.get("/suhbat/{sid}", summary="Bitta suhbat tarixi")
 def suhbat(sid: int, request: Request):
     k, xato = _kirish(request, "suhbat")
     if xato:
@@ -354,7 +354,7 @@ def suhbat(sid: int, request: Request):
 
 # ------------------------------------------------------------------ fragment
 
-@router.post("/bolak/{bid}/fragment")
+@router.post("/bolak/{bid}/fragment", summary="Audio fragment tayyorlash")
 def bolak_fragment(bid: int, request: Request):
     """Iqtibosning audio kesmasini tayyorlashni buyuradi."""
     k, xato = _kirish(request, "fragment")
@@ -383,7 +383,7 @@ def bolak_fragment(bid: int, request: Request):
 
 # --------------------------------------------------------------------- hisob
 
-@router.get("/hisob")
+@router.get("/hisob", summary="Balans va sarf")
 def hisob(request: Request):
     k, xato = _kirish(request, "hisob")
     if xato:
@@ -397,7 +397,7 @@ def hisob(request: Request):
     return natija
 
 
-@router.get("/hisobot")
+@router.get("/hisobot", summary="Oylik hisobot")
 def hisobot(request: Request, oy: str = ""):
     """Oylik hisob-faktura: `?oy=2026-09` (bo'sh — joriy oy)."""
     k, xato = _kirish(request, "hisob")
@@ -406,7 +406,7 @@ def hisobot(request: Request, oy: str = ""):
     return b2b.hisobot(k.tashkilot_id, oy)
 
 
-@router.get("/salomatlik")
+@router.get("/salomatlik", summary="Ulanishni tekshirish — bepul")
 def salomatlik(request: Request):
     """Hamkor integratsiyani tekshirishi uchun — pul sarflamaydi."""
     k, xato = _kirish(request, "hisob")
