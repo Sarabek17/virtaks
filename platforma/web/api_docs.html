@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="uz">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Virtaks B2B API</title>
+<link rel="stylesheet" href="/static/swagger-ui.css">
+<style>
+/* Swagger'ning o'z uslubi ustiga ozgina brend qatlami. Sahifa ATAYLAB
+   ui.css dan mustaqil: u ilova tokenlariga bog'lansa, dizayn o'zgarganda
+   hamkorning hujjati sinardi. */
+body { margin: 0; background: #fbfbfd; color: #1c1e21;
+       font-family: -apple-system, "Segoe UI", Roboto, sans-serif; }
+.bosh { background: #12131a; color: #fff; padding: 22px 26px; }
+.bosh .nom { display: flex; align-items: center; gap: 11px;
+             font-size: 19px; font-weight: 650; letter-spacing: -.2px; }
+.bosh .nom .v {
+  width: 30px; height: 30px; border-radius: 8px; background: #5b8cff;
+  display: flex; align-items: center; justify-content: center;
+  font-weight: 800; font-size: 17px;
+}
+.bosh .tan { margin-top: 7px; font-size: 13.5px; color: #a8adba;
+             max-width: 760px; line-height: 1.55; }
+.bosh a { color: #8fb0ff; }
+.swagger-ui .topbar { display: none; }
+.swagger-ui .info { margin: 26px 0 18px; }
+#swagger { max-width: 1160px; margin: 0 auto; }
+</style>
+</head>
+<body>
+
+<div class="bosh">
+  <div class="nom"><span class="v">V</span> Virtaks B2B API</div>
+  <div class="tan">
+    Hamkorlar uchun API. Har so'rovda <code>Authorization: Bearer &lt;kalit&gt;</code>
+    bo'lishi shart — «Authorize» tugmasidan kiriting. Bu yerdagi «Try it out»
+    haqiqiy so'rov yuboradi va <b>hisobingizdan pul yechadi</b>; bepul tekshirish
+    uchun <code>GET /api/v1/salomatlik</code> dan foydalaning.
+  </div>
+</div>
+
+<div id="swagger"></div>
+
+<script src="/static/swagger-ui-bundle.js"></script>
+<script src="/static/api_docs.js"></script>
+</body>
+</html>

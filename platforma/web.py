@@ -20,7 +20,11 @@ from . import (admin, aniqlik, api_v1, auth, cheklov, db, fragment,
                tizim_oqim, tolov, vazifa, yordamchi)
 from .sozlama import ILDIZ, MUHIT, log
 
-app = FastAPI(title="Virtaks platformasi")
+# Standart /docs, /redoc va /openapi.json ATAYLAB o'chirilgan: ular 164 ta
+# yo'lni, jumladan butun /api/admin/* ni, internetga ro'yxatlab berardi.
+# Hamkorga kerakli qism /api/v1/docs da alohida beriladi (`b2b_openapi`).
+app = FastAPI(title="Virtaks platformasi",
+              docs_url=None, redoc_url=None, openapi_url=None)
 app.include_router(admin.router)
 app.include_router(kabinet.router)
 app.include_router(tolov.router)
@@ -2017,6 +2021,103 @@ def tg_widget():
                              "Cache-Control": "no-store"})
 
 
+# --- B2B API hujjati (hamkorlar uchun) ---------------------------------------
+# Hamkor faqat O'ZIGA tegishli yuzani ko'rishi kerak. To'liq sxemani berish
+# ichki yo'llarni (admin, kabinet, to'lov) oshkor qilardi — shuning uchun
+# quyidagi filtr /api/v1 dan boshqasini kesib tashlaydi.
+#
+# Sahifaning CSP'si asosiy ilovanikidan QAT'IYROQ: `script-src 'self'` —
+# inline skript ham yo'q (swagger'ni ishga tushirish /static/api_docs.js da).
+# Middleware /api/ yo'llariga CSP qo'ymaydi, shuning uchun bu yerda qo'lda.
+API_DOCS_CSP = "; ".join([
+    "default-src 'self'",
+    "script-src 'self'",
+    "style-src 'self' 'unsafe-inline'",       # swagger-ui inline uslub yozadi
+    "img-src 'self' data:",
+    "font-src 'self' data:",
+    "connect-src 'self'",
+    "base-uri 'none'", "form-action 'none'", "object-src 'none'",
+    "frame-ancestors 'none'",
+])
+
+_B2B_SXEMA = {}
+
+
+def _reflar(tugun, topilgan: set) -> set:
+    """$ref orqali havola qilingan sxema nomlarini rekursiv yig'adi."""
+    if isinstance(tugun, dict):
+        r = tugun.get("$ref")
+        if isinstance(r, str) and r.startswith("#/components/schemas/"):
+            topilgan.add(r.rsplit("/", 1)[1])
+        for v in tugun.values():
+            _reflar(v, topilgan)
+    elif isinstance(tugun, list):
+        for v in tugun:
+            _reflar(v, topilgan)
+    return topilgan
+
+
+def b2b_openapi() -> dict:
+    """To'liq sxemadan faqat /api/v1 ni kesib oladi. Natija keshlanadi."""
+    if "spec" in _B2B_SXEMA:
+        return _B2B_SXEMA["spec"]
+    toliq = app.openapi()
+    yollar = {k: v for k, v in toliq.get("paths", {}).items()
+              if k.startswith("/api/v1")}
+    # Sxemalar: shu yo'llardan havola qilinganlari va ularning ichkilari.
+    # Bir aylanish yetmaydi — sxema ichida yana $ref bo'lishi mumkin.
+    barcha = toliq.get("components", {}).get("schemas", {})
+    kerak = _reflar(yollar, set())
+    while True:
+        yangi = _reflar({k: barcha[k] for k in kerak if k in barcha}, set()) - kerak
+        if not yangi:
+            break
+        kerak |= yangi
+    spec = {
+        "openapi": toliq.get("openapi", "3.1.0"),
+        "info": {
+            "title": "Virtaks B2B API",
+            "version": "1",
+            "description": (
+                "Ustoz bilimidan qurilgan raqamli egizak. Mijozingiz savol "
+                "beradi, javob **faqat o'sha ustozning darslariga tayanib** "
+                "yoziladi va har da'voda manbaga iqtibos bo'ladi.\n\n"
+                "Har so'rovda `Authorization: Bearer <kalit>` bo'lishi shart. "
+                "Kalitni **faqat server tomonida** saqlang: undan foydalangan "
+                "har kim sizning hisobingizdan pul sarflaydi.\n\n"
+                "Sizga tegishli bo'lmagan resurs **404** qaytaradi (403 emas) "
+                "— mavjudligini ham oshkor qilmaymiz.\n\n"
+                "To'liq qo'llanma va misollar: `docs/B2B_API.md`."
+            ),
+        },
+        "servers": [{"url": auth.public_url()}],
+        "paths": yollar,
+        "components": {
+            "schemas": {k: barcha[k] for k in sorted(kerak) if k in barcha},
+            "securitySchemes": {
+                "kalit": {"type": "http", "scheme": "bearer",
+                          "description": "Sizga berilgan API kaliti "
+                                         "(`vk_live_...`)."},
+            },
+        },
+        "security": [{"kalit": []}],
+    }
+    _B2B_SXEMA["spec"] = spec
+    return spec
+
+
+@app.get("/api/v1/openapi.json")
+def b2b_openapi_json():
+    return JSONResponse(b2b_openapi())
+
+
+@app.get("/api/v1/docs")
+def b2b_docs():
+    return FileResponse(WEB / "api_docs.html", media_type="text/html",
+                        headers={"Content-Security-Policy": API_DOCS_CSP,
+                                 "Cache-Control": "public, max-age=300"})
+
+
 @app.get("/favicon.ico")
 def favicon():
     return Response(status_code=204)
@@ -2026,7 +2127,11 @@ def favicon():
 # ketish (path traversal) imkonsiz.
 STATIK = {"mermaid.min.js": "application/javascript",
           "ui.css": "text/css",
-          "ui.js": "application/javascript"}
+          "ui.js": "application/javascript",
+          # B2B hujjati (/api/v1/docs) — CDN dan olinmaydi, CSP 'self' talab qiladi
+          "swagger-ui.css": "text/css",
+          "swagger-ui-bundle.js": "application/javascript",
+          "api_docs.js": "application/javascript"}
 
 
 @app.get("/static/{nom}")
