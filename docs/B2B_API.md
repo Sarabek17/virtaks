@@ -43,24 +43,6 @@ curl -H "Authorization: Bearer $VIRTAKS_KALIT" \
 {"holat": "ok", "tashkilot": "Sizning kompaniyangiz", "twinlar": 2}
 ```
 
-**Login, parol va sessiya yo'q** — token almashadigan `/login` endpointi ham yo'q. Kalit har so'rovda sarlavhada boradi, xolos.
-
-### Eski (o'zbekcha) manzillar
-
-Quyidagilar ham ishlayveradi (eski integratsiyalar uchun saqlangan), lekin yangi ish uchun asosiy nomlarni ishlating:
-
-| Asosiy | Eski |
-|---|---|
-| `/health` | `/salomatlik` |
-| `/mentors` | `/twinlar` |
-| `/customer` | `/foydalanuvchi` |
-| `/ask` | `/savol` |
-| `/conversations` | `/suhbatlar` |
-| `/conversation/{id}` | `/suhbat/{id}` |
-| `/chunk/{id}/fragment` | `/bolak/{id}/fragment` |
-| `/account` | `/hisob` |
-| `/report` | `/hisobot` |
-
 ---
 
 ## 2. Qaysi ustozlar ochiq

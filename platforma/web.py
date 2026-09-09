@@ -2041,10 +2041,6 @@ API_DOCS_CSP = "; ".join([
 ])
 
 B2B_HUJJAT = ("/api/v1/docs", "/api/v1/openapi.json")
-
-# Hujjatning kirish qismi. Hamkorning birinchi savoli doim bitta:
-# «login API si qaysi?» — javob OCHIQ yozilishi kerak.
-B2B_KIRISH_MATNI = '## Kirish\n\n**Login, parol va sessiya yo\'q.** Token almashadigan `/login` endpointi ham yo\'q — sizga berilgan kalit HAR so\'rovda sarlavhada yuboriladi:\n\n```\nAuthorization: Bearer vk_live_...\n```\n\nYuqoridagi **Authorize** tugmasiga kalitni kiritsangiz, shu sahifadan turib barcha so\'rovni sinab ko\'rasiz.\n\nTekshirish (pul sarflamaydi):\n\n```\ncurl -H "Authorization: Bearer $KALIT" \\\n     {ASOS}/api/v1/health\n```\n\nKalit muddatsiz. Kalitni **faqat server tomonida** saqlang: undan foydalangan har kim sizning hisobingizdan pul sarflaydi. Brauzer yoki mobil ilova kodiga qo\'ymang.\n\n## Xato kodlari\n\n| Kod | Ma\'no |\n|---|---|\n| 401 | kalit yo\'q, yaroqsiz, muddati o\'tgan yoki IP mos emas |\n| 402 | balans tugadi — hisobni to\'ldiring |\n| 403 | kalitda bu huquq yo\'q |\n| 404 | resurs yo\'q **yoki sizga tegishli emas** (403 emas — mavjudligini ham oshkor qilmaymiz) |\n| 409 | tashkilotga hali ustoz biriktirilmagan |\n| 429 | tezlik chegarasi — `Retry-After` sarlavhasini kuting |\n| 503 | model vaqtincha javob bermadi, qayta urinish mumkin |\n\n## Eski (o\'zbekcha) manzillar\n\nQuyidagilar ham ishlayveradi — eski integratsiyalar buzilmasin deb saqlangan. **Yangi ish uchun yuqoridagi nomlarni ishlating.**\n\n| Hujjatdagi | Eski |\n|---|---|\n| `/health` | `/salomatlik` |\n| `/mentors` | `/twinlar` |\n| `/customer` | `/foydalanuvchi` |\n| `/ask` | `/savol` |\n| `/conversations` | `/suhbatlar` |\n| `/conversation/{id}` | `/suhbat/{id}` |\n| `/chunk/{id}/fragment` | `/bolak/{id}/fragment` |\n| `/account` | `/hisob` |\n| `/report` | `/hisobot` |\n'
 _B2B_SXEMA = {}
 
 
@@ -2089,9 +2085,12 @@ def b2b_openapi() -> dict:
                 "Ustoz bilimidan qurilgan raqamli egizak. Mijozingiz savol "
                 "beradi, javob **faqat o'sha ustozning darslariga tayanib** "
                 "yoziladi va har da'voda manbaga iqtibos bo'ladi.\n\n"
-                + B2B_KIRISH_MATNI.replace("{ASOS}", auth.public_url())
-                + "\n## Qo'llanma\n\n"
-                  "To'liq misollar va namuna kod: `docs/B2B_API.md`."
+                "Har so'rovda `Authorization: Bearer <kalit>` bo'lishi shart. "
+                "Kalitni **faqat server tomonida** saqlang: undan foydalangan "
+                "har kim sizning hisobingizdan pul sarflaydi.\n\n"
+                "Sizga tegishli bo'lmagan resurs **404** qaytaradi (403 emas) "
+                "— mavjudligini ham oshkor qilmaymiz.\n\n"
+                "To'liq qo'llanma va misollar: `docs/B2B_API.md`."
             ),
         },
         "servers": [{"url": auth.public_url()}],
