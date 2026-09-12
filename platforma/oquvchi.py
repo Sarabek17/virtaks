@@ -98,6 +98,18 @@ def audio_davomiyligi(manba: str) -> float:
     return int(m.group(1)) * 3600 + int(m.group(2)) * 60 + float(m.group(3))
 
 
+JIM_DB = -50.0   # o'rtacha ovoz shundan past bo'lsa — qism jim (nutq -20..-30 dB)
+
+
+def audio_ortacha_db(manba: Path) -> float | None:
+    """ffmpeg volumedetect: qismning o'rtacha ovozi (dB). Aniqlanmasa None."""
+    r = subprocess.run([ffmpeg_yol(), "-hide_banner", "-i", str(manba),
+                        "-af", "volumedetect", "-f", "null", "-"],
+                       capture_output=True, text=True, errors="replace")
+    m = re.search(r"mean_volume:\s*(-?\d+(?:\.\d+)?)\s*dB", r.stderr)
+    return float(m.group(1)) if m else None
+
+
 def _vaqt(s: int) -> str:
     return f"{s // 3600}:{s % 3600 // 60:02d}:{s % 60:02d}"
 
@@ -196,11 +208,29 @@ def _ofset_qoshish(matn: str, ofset_s: int) -> str:
     return re.sub(r"\[(\d{1,2}):(\d{2})\]", alm, matn)
 
 
+def _filtr_bosh_javob(e: Exception) -> bool:
+    """Model xavfsizlik/mualliflik filtri (RECITATION, PROHIBITED_CONTENT...)
+    sabab bo'sh javob qaytardimi. Bu qayta urinish bilan tuzalmaydi va butun
+    faylni yiqitmasligi kerak — o'sha qism bo'sh qoladi, qolgani saqlanadi.
+    (2026-09-13: GOST/ISO standartlari va NEBOSH darsliklarida 7 fayl shu
+    sabab butunlay yo'qolgan edi.)"""
+    return isinstance(e, RuntimeError) and str(e).startswith("bo'sh javob")
+
+
 def _stt_qism(qism: Path, idx: int, jami: int, kesh, yoz) -> str:
     keshdan = kesh.ol(f"stt_{idx:03d}.txt")
     if keshdan is not None:
         yoz(f"  [{idx + 1}/{jami}] transkript keshdan ✓")
         return keshdan
+
+    # Jim qism (mikrofon o'chgan, tanaffus) modelga yuborilmaydi: u bo'shliqni
+    # "to'ldirib" o'zbekcha to'qima matn yozadi (2026-09-12: 93 daqiqalik jim
+    # yozuvdan 40 bo'lak diniy ma'ruza chiqqan edi) — pul ham, bilim ham zarar.
+    db = audio_ortacha_db(qism)
+    if db is not None and db < JIM_DB:
+        yoz(f"  [{idx + 1}/{jami}] jim qism ({db:.0f} dB) — STT o'tkazib yuborildi")
+        kesh.yoz(f"stt_{idx:03d}.txt", "")
+        return ""
 
     cl = llm.klient()
     yoz(f"  [{idx + 1}/{jami}] yuklanmoqda ({qism.stat().st_size / 1e6:.1f} MB)...")
@@ -212,6 +242,13 @@ def _stt_qism(qism: Path, idx: int, jami: int, kesh, yoz) -> str:
         matn = llm.generatsiya_qismlar(llm.STT_MODELLAR, [up, STT_PROMPT],
                                        harorat=0.2, maks_token=65535,
                                        bosqich="stt")
+    except Exception as e:
+        if not _filtr_bosh_javob(e):
+            raise
+        yoz(f"  [{idx + 1}/{jami}] DIQQAT: model filtri ({str(e)[:60]}) — "
+            f"bu {STT_BOLAK_DAQIQA} daqiqa transkriptsiz qoladi")
+        kesh.yoz(f"stt_{idx:03d}.txt", "")
+        return ""
     finally:
         try:
             cl.files.delete(name=up.name)
@@ -271,8 +308,16 @@ def _sahifa_ocr(rasm: bytes, idx: int, jami: int, kesh, yoz) -> str:
         yoz(f"  [{idx + 1}/{jami}] sahifa keshdan ✓")
         return keshdan
     qism = types.Part.from_bytes(data=rasm, mime_type="image/jpeg")
-    matn = llm.generatsiya_qismlar(llm.OCR_MODELLAR, [qism, OCR_PROMPT],
-                                   harorat=0.1, maks_token=8192, bosqich="ocr")
+    try:
+        matn = llm.generatsiya_qismlar(llm.OCR_MODELLAR, [qism, OCR_PROMPT],
+                                       harorat=0.1, maks_token=8192, bosqich="ocr")
+    except Exception as e:
+        if not _filtr_bosh_javob(e):
+            raise
+        yoz(f"  [{idx + 1}/{jami}] DIQQAT: model filtri ({str(e)[:60]}) — "
+            f"sahifa matnsiz qoladi")
+        kesh.yoz(f"ocr_{idx:03d}.md", "")
+        return ""
     # model ba'zan takrorlanish tsikliga tushadi (o'n minglab belgi) — bilim bazasini
     # ifloslantirmasligi uchun boshqa model bilan bir marta qayta, keyin kesamiz
     if len(matn) > OCR_MAKS_BELGI:
