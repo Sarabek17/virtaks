@@ -337,28 +337,48 @@ def _sahifa_ocr(rasm: bytes, idx: int, jami: int, kesh, yoz) -> str:
     return matn
 
 
+MATN_QATLAM_MIN = 200    # sahifada shuncha belgi matn qatlami bo'lsa OCR shart emas
+
+
+def _matn_qatlami(sahifa) -> str:
+    """PDF sahifasining o'z matn qatlami (skaner bo'lsa bo'sh). Satrlar
+    tartibi saqlanadi, ortiqcha bo'sh joy yig'iladi."""
+    matn = sahifa.get_text("text") or ""
+    satrlar = [re.sub(r"[ \t]+", " ", s).strip() for s in matn.splitlines()]
+    return "\n".join(s for s in satrlar if s).strip()
+
+
 def pdf_oqi(fayl: Path, kesh, yoz, atama: str = "slayd") -> dict:
-    """Har sahifa rasmga aylantiriladi -> vision OCR + rasm fragment uchun saqlanadi."""
+    """Har sahifa: matn qatlami bo'lsa — o'sha (aniq va bepul), bo'lmasa
+    (skaner, skrinshot) — vision OCR. Rasm har holda fragment uchun saqlanadi.
+
+    2026-09-13 gacha hamma sahifa OCR dan o'tardi: NEBOSH to'plamida 2711
+    sahifa matnli standart/darslik ≈ $17 ga tushardi, matn esa PDF ichida
+    tayyor turgan edi."""
     import fitz   # PyMuPDF
     hujjat = fitz.open(str(fayl))
     jami = len(hujjat)
-    yoz(f"PDF: {fayl.name} | {jami} sahifa | vision OCR, parallel {PARALLEL}")
 
     rasmlar = []   # fitz thread-safe emas — rasmlarni oldin tayyorlaymiz
+    natijalar: dict[int, str] = {}
     for i in range(jami):
         piks = hujjat[i].get_pixmap(matrix=fitz.Matrix(RASM_MASSHTAB, RASM_MASSHTAB))
         rasmlar.append(piks.tobytes("jpeg", jpg_quality=JPEG_SIFAT))
+        qatlam = _matn_qatlami(hujjat[i])
+        if len(qatlam) >= MATN_QATLAM_MIN:
+            natijalar[i] = qatlam
     hujjat.close()
-    yoz(f"  {jami} sahifa rasmga aylantirildi")
+    ocr_kerak = [i for i in range(jami) if i not in natijalar]
+    yoz(f"PDF: {fayl.name} | {jami} sahifa | matn qatlami: {len(natijalar)}, "
+        f"vision OCR: {len(ocr_kerak)}, parallel {PARALLEL}")
 
-    natijalar: dict[int, str] = {}
     with ThreadPoolExecutor(max_workers=PARALLEL) as ex:
         # STT dagi kabi: xarajat konteksti har oqimga alohida nusxa bilan.
         # 3595 sahifalik to'plamning OCR sarfi shu tuzatishgacha daftarga
         # tushmagan edi.
         fut = {ex.submit(contextvars.copy_context().run,
-                         _sahifa_ocr, r, i, jami, kesh, yoz): i
-               for i, r in enumerate(rasmlar)}
+                         _sahifa_ocr, rasmlar[i], i, jami, kesh, yoz): i
+               for i in ocr_kerak}
         for f in as_completed(fut):
             natijalar[fut[f]] = f.result()
 
