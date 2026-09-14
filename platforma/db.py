@@ -301,11 +301,11 @@ def direktor_ochir(did: int):
 def manba_yasa(twin_id: int, nom: str, tur: str, **f) -> int:
     r = pg.bitta(
         """INSERT INTO manbalar(twin_id, nom, tur, s3_yol, manba_url, papka,
-                                yuklagan_id, asl_nom, hajm, mime)
-           VALUES(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) RETURNING id""",
+                                yuklagan_id, asl_nom, hajm, mime, sha256)
+           VALUES(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) RETURNING id""",
         twin_id, nom, tur, f.get("s3_yol", ""), f.get("manba_url", ""),
         f.get("papka", ""), f.get("yuklagan_id"), f.get("asl_nom", ""),
-        f.get("hajm", 0), f.get("mime", ""))
+        f.get("hajm", 0), f.get("mime", ""), f.get("sha256"))
     return r[0]
 
 

@@ -17,6 +17,7 @@ DIQQAT — PUL: har PDF sahifasi vision-OCR dan o'tadi (taxminan $0.002).
 ko'rsatadi va tasdiq so'raydi (`--tasdiq` bilan so'ramaydi).
 """
 import argparse
+import hashlib
 import sys
 import time
 from pathlib import Path
@@ -33,6 +34,14 @@ def _tozalash(nom: str) -> str:
     """Fayl nomini xavfsiz holga keltiradi (kabinet._tozalash bilan bir mantiq)."""
     nom = Path(nom).name.replace("\\", "_").replace("/", "_")
     return nom.strip()[:200] or "fayl"
+
+
+def _sha256(yol: Path) -> str:
+    h = hashlib.sha256()
+    with yol.open("rb") as f:
+        for qism in iter(lambda: f.read(1 << 20), b""):
+            h.update(qism)
+    return h.hexdigest()
 
 
 def _fayllar(papkalar: list[Path]) -> list[tuple[Path, str]]:
@@ -73,8 +82,9 @@ def main():
         raise SystemExit(f"twin #{args.twin} topilmadi")
 
     hammasi = _fayllar([Path(q) for q in args.papka])
-    ish: list[tuple[Path, str, str]] = []       # (yo'l, teg, tur)
-    otkazildi = {"format": 0, "bor": 0, "katta": 0, "bosh": 0}
+    ish: list[tuple[Path, str, str, str]] = []  # (yo'l, teg, tur, sha256)
+    korilgan: set[str] = set()
+    otkazildi = {"format": 0, "bor": 0, "nusxa": 0, "katta": 0, "bosh": 0}
 
     for yol, teg in hammasi:
         nom = _tozalash(yol.name)
@@ -97,20 +107,32 @@ def main():
         if bor:
             otkazildi["bor"] += 1
             continue
-        ish.append((yol, teg, tur))
+        # Bir xil fayl boshqa nom/papkada (nusxa) — mazmun bir xil, pul ikki
+        # marta ketmasin. NEBOSH to'plamida 12 vebinar ikki nomda yotgan edi.
+        xesh = _sha256(yol)
+        if xesh in korilgan:
+            otkazildi["nusxa"] += 1
+            continue
+        bor = pg.bitta("SELECT id FROM manbalar WHERE twin_id=%s AND sha256=%s",
+                       args.twin, xesh)
+        if bor:
+            otkazildi["nusxa"] += 1
+            continue
+        korilgan.add(xesh)
+        ish.append((yol, teg, tur, xesh))
 
     if args.chegara:
         ish = ish[:args.chegara]
 
-    jami_hajm = sum(y.stat().st_size for y, _, _ in ish)
+    jami_hajm = sum(y.stat().st_size for y, _, _, _ in ish)
     print(f"\nTwin #{t['id']} «{t['nom']}»")
     print(f"  topildi        : {len(hammasi)} fayl")
     print(f"  yuklanadi      : {len(ish)} fayl, {jami_hajm / 1e6:.0f} MB")
-    print(f"  o'tkazildi     : {otkazildi['bor']} allaqachon bor, "
+    print(f"  o'tkazildi     : {otkazildi['bor']} allaqachon bor, {otkazildi['nusxa']} nusxa, "
           f"{otkazildi['format']} mos kelmaydigan format, "
           f"{otkazildi['katta']} juda katta, {otkazildi['bosh']} bo'sh")
     turlar: dict[str, int] = {}
-    for _, _, tur in ish:
+    for _, _, tur, _ in ish:
         turlar[tur] = turlar.get(tur, 0) + 1
     print(f"  turlari        : {turlar or '-'}")
     print("  DIQQAT: har sahifa/daqiqa model orqali o'tadi — PDF sahifasi "
@@ -121,7 +143,7 @@ def main():
         return
     if args.quruq:
         print("\n--quruq: hech narsa yuklanmadi. Ro'yxat:")
-        for yol, teg, tur in ish:
+        for yol, teg, tur, _ in ish:
             print(f"    [{tur:6}] {teg}/{yol.name}")
         return
     if not args.tasdiq:
@@ -132,7 +154,7 @@ def main():
 
     storage.baket_yumshoq()
     qoshildi = xato = 0
-    for i, (yol, teg, tur) in enumerate(ish, 1):
+    for i, (yol, teg, tur, xesh) in enumerate(ish, 1):
         nom = _tozalash(yol.name)
         hajm = yol.stat().st_size
         s3_yol = f"manbalar/{args.twin}/{int(time.time())}_{nom}"
@@ -144,7 +166,7 @@ def main():
             xato += 1
             continue
         mid = db.manba_yasa(args.twin, nom, tur, s3_yol=s3_yol, papka=teg,
-                            asl_nom=nom, hajm=hajm, mime="")
+                            asl_nom=nom, hajm=hajm, mime="", sha256=xesh)
         jid = jobs.qoshish("ingest_fayl", {"manba_id": mid}, twin_id=args.twin,
                            ustunlik=7, muhlat_s=INGEST_MUHLAT, max_urinish=2)
         qoshildi += 1
