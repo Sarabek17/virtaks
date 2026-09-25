@@ -1,9 +1,14 @@
 # PAYLOV TO'LOVI — to'liq ishlab chiqish rejasi
 
-> Holat: **KOD YOZILDI** (2026-08-10) — PL1–PL7 bajarildi, sinovlar hali
-> ishlatilmagan (bazaga ulanish kerak). Qolgani: sinovni yugurtirish,
+> Holat (2026-09-25): **KOD TAYYOR, PRODDA ULANMAGAN.** PL1–PL6 bajarildi;
+> `sinov_paylov` 45/45 yashil (toza pgvector bazada); prod bazada
+> `010_paylov.sql` qo'llangan; jonli server (81.17.99.4) `joylash/.env` da
+> `PAYLOV_MERCHANT_ID/LOGIN/PAROL` BO'SH — callback 404 qaytaradi.
+> Qolgani: merchant ma'lumotlari + callback login/parol serverga (11.2),
 > Paylov kabinetini sozlash (11.1), jonli 1 000 so'mlik sinov (11.3),
-> so'ng `kvota_faol=1` (11.4).
+> P0-savollar javobi (15), tariflarni qayta hisoblash (11.4 — `planlar`
+> narxlari model narxi 4x past bo'lgan davrda taxmin qilingan),
+> so'ng `kvota_faol=1`.
 > Poydevor: `DIGITAL_TWIN_REJA.md` 3-bosqich «Pul» (`004_pul.sql`, `pul.py`,
 > `tolov.py` — Click/Payme adapterlari allaqachon bor).
 > Manba: https://developer.paylov.uz/ru/merchant-configuration va shu
@@ -455,12 +460,18 @@ qiymatlarini `os.environ` ga qo'yadi va jarayonda Click/Payme'ni o'chiradi
 2. Chek maydoni: `order_id`.
 3. Tranzaksiya chegaralari: min **1 000** so'm, max **1 000 000** so'm
    (planlarimiz 149 000 / 449 000 — orasida).
-4. Callback URL: `https://twin.bmslab.uz/tolov/paylov`
+4. Callback URL: `https://twin.virtaks.uz/tolov/paylov`
 5. Callback login/parol — kuchli, tasodifiy; faqat `.env.platforma` da.
 6. Yoqiladigan metodlar: **`transaction.check` + `transaction.perform`**
    (ikkalasi — `check` bizga «bu buyurtma haqiqiy» deb oldindan aytadi).
 
 ### 11.2 Deploydan oldin
+
+Hozirgi (DigitalOcean/docker) tartib: serverda `joylash/.env` ga
+`PAYLOV_MERCHANT_ID`, `PAYLOV_CALLBACK_LOGIN`, `PAYLOV_CALLBACK_PAROL`
+yoziladi, so'ng `cd joylash && docker compose up -d web ishchi` (env faqat
+startda o'qiladi). Tekshiruv: auth'siz `POST /tolov/paylov` 404 emas, 401
+qaytarsa — ulandi. Quyidagi eski tartib (robocopy/tar) endi kerak emas.
 
 ```powershell
 python -m platforma.pg                # 010_paylov.sql qo'llanadi

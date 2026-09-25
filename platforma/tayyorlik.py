@@ -190,13 +190,19 @@ def bilim():
 
 def userlar():
     bolim("5. Foydalanuvchilar va rollar")
-    a = pg.hammasi_d("""SELECT id, ism, login, parol_hash IS NOT NULL parolli
+    a = pg.hammasi_d("""SELECT id, ism, login, parol_hash IS NOT NULL parolli,
+                               tg_id IS NOT NULL tgli
                         FROM userlar WHERE rol='admin' ORDER BY id""")
     for x in a:
         print(f"       admin #{x['id']} {x['ism']} "
-              f"({'parolli' if x['parolli'] else 'PAROLSIZ'})")
+              f"({'TG' if x['tgli'] else 'TGsiz'}, "
+              f"{'parolli' if x['parolli'] else 'parolsiz'})")
     tek(bool(a), "kamida bitta admin bor")
-    tek(any(x["parolli"] for x in a), "kamida bitta admin parol bilan kira oladi")
+    # Kirish faqat Telegram (web.FAQAT_TELEGRAM) — asosiy shart TG bog'langani.
+    # Parol faqat ZAXIRA_KIRISH=1 favqulodda eshigi uchun kerak.
+    tek(any(x["tgli"] for x in a), "kamida bitta admin Telegram orqali kira oladi")
+    tek(any(x["parolli"] for x in a), "zaxira eshik uchun admin paroli bor",
+        muhim=False)
 
     e = pg.bitta("SELECT count(*) FROM twinlar WHERE egasi_id IS NOT NULL")[0]
     tek(e > 0, "twinlarga egasi biriktirilgan", f"{e} ta", muhim=False)
