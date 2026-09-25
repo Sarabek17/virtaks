@@ -1,14 +1,14 @@
 # PAYLOV TO'LOVI — to'liq ishlab chiqish rejasi
 
-> Holat (2026-09-25): **KOD TAYYOR, PRODDA ULANMAGAN.** PL1–PL6 bajarildi;
-> `sinov_paylov` 45/45 yashil (toza pgvector bazada); prod bazada
-> `010_paylov.sql` qo'llangan; jonli server (81.17.99.4) `joylash/.env` da
-> `PAYLOV_MERCHANT_ID/LOGIN/PAROL` BO'SH — callback 404 qaytaradi.
-> Qolgani: merchant ma'lumotlari + callback login/parol serverga (11.2),
-> Paylov kabinetini sozlash (11.1), jonli 1 000 so'mlik sinov (11.3),
-> P0-savollar javobi (15), tariflarni qayta hisoblash (11.4 — `planlar`
-> narxlari model narxi 4x past bo'lgan davrda taxmin qilingan),
-> so'ng `kvota_faol=1`.
+> Holat (2026-09-25): **PRODDA ULANDI, PUL HALI OLINMAYDI.** PL1–PL6
+> bajarildi; `sinov_paylov` 45/45 yashil; prod bazada `010_paylov.sql`
+> qo'llangan; serverda (81.17.99.4) `PAYLOV_MERCHANT_ID` + callback
+> login/parol `joylash/.env` da, `tolov.paylov_sozlangan()=True`; jonli
+> callback auth'siz 401, auth bilan `transaction.check` -> 303 (to'g'ri).
+> Qolgani: Paylov kabinetida callback URL/login/parol (11.1), jonli
+> 1 000 so'mlik sinov (11.3), P0-savollar javobi (15), tariflarni qayta
+> hisoblash (planlar narxi model narxi 4x past bo'lgan davrda taxmin
+> qilingan), so'ng `kvota_faol=1` (11.4).
 > Poydevor: `DIGITAL_TWIN_REJA.md` 3-bosqich «Pul» (`004_pul.sql`, `pul.py`,
 > `tolov.py` — Click/Payme adapterlari allaqachon bor).
 > Manba: https://developer.paylov.uz/ru/merchant-configuration va shu
