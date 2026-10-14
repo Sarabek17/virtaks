@@ -149,7 +149,8 @@ ayni o'sha, ustida ikki qatlam: izolyatsiya va hisob.
 | Fayl | Vazifa |
 |---|---|
 | `b2b.py` | kalitlar (argon2), tashkilot izolyatsiyasi, balans daftari |
-| `api_v1.py` | `/api/v1/*` — 8 endpoint, SSE hodisalarini tozalash |
+| `api_v1.py` | `/api/v1/*` — 13 endpoint, SSE hodisalarini tozalash |
+| `fayl_javob.py` | S3 faylini HTTP ga berish (Range) — `web` va `api_v1` uchun bitta |
 | `sinov_b2b.py` | 72 tekshiruv, modelsiz (`python -m platforma.sinov_b2b`) |
 | `sinov_jonli.py` | jonli tutun sinovi — MODEL CHAQIRADI, deploydan keyin bir marta |
 | `web/admin.html` | «Hamkorlar (B2B)» va «Ustoz ulushi» bo'limlari |
@@ -165,6 +166,10 @@ Qat'iy qoidalar:
    `yordamchi` ning `tayyor` hodisasi `narx_usd` bilan keladi —
    `api_v1._hodisa` uni olib tashlaydi. Yangi hodisa qo'shsang, shu
    funksiyaga ham qo'sh: **oq ro'yxatda yo'q hodisa umuman uzatilmaydi**.
+   Ayni qoida USTUNLARGA ham tegishli: `_manba` (iqtibos), `_manba_qator`
+   (manba ro'yxati) va `/chunk` javobi ustunlarni bitta-bitta sanaydi —
+   `SELECT *` yoki `m.*` ni hamkorga uzatish TAQIQLANGAN (`s3_yol`,
+   `xato`, `yuklagan_id`, `audio_xato` ichki ma'lumot).
 3. **Begona resurs 404**, 403 emas — mavjudligini ham oshkor qilmaymiz.
 4. **Balans faqat `balans_harakat` daftari orqali** o'zgaradi (qoldiq bilan),
    hech qachon to'g'ridan-to'g'ri UPDATE bilan emas.

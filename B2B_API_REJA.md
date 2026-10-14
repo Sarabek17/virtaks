@@ -701,3 +701,58 @@ chiqadi. Ya'ni qaror keyinga qoldirildi, ma'lumot esa yo'qolmaydi.
 docker compose exec web python -m platforma.tayyorlik   # 11-bo'lim: B2B
 docker compose exec web python -m platforma.sinov_jonli # bir necha sent
 ```
+
+---
+
+## 17. Manba yuzasi (2026-10-15)
+
+**Muammo.** Hamkor manbalarni faqat javob ichidagi iqtibos sifatida
+ko'rardi: `manbalar[]` da `bolak` ID, fayl nomi va `audio: true` bor edi,
+lekin na matnini, na faylini olish yo'li yo'q edi. `POST
+/chunk/{id}/fragment` kesmani buyurardi va `{"holat":"tayyor"}` deb
+javob berardi — **tayyor faylni olib bo'lmaydi**. Hujjatda bu
+"kelishuv bo'yicha" deb yozilgan, ya'ni amalda uzilgan zanjir edi.
+B2C yuzasida (`web.py`) uchalasi ham bor edi.
+
+**Qo'shilgani** (`api_v1.py`, 9 -> 13 endpoint):
+
+| Endpoint | Huquq | Nima beradi |
+|---|---|---|
+| `GET /sources` | `twinlar` | twinning tayyor manbalari (sahifalash, `tur`/`papka` filtri) |
+| `GET /chunk/{id}` | `fragment` | bo'lak matni, oraliq, teglar, qanday fayl borligi |
+| `GET /chunk/{id}/audio` | `fragment` | tayyor mp3 kesma (Range -> 206) |
+| `GET /chunk/{id}/image` | `fragment` | slayd/sahifa surati |
+
+Yangi huquq KIRITILMADI — ataylab: `HUQUQLAR` ga yangi nom qo'shilsa,
+allaqachon berilgan kalitlarning `huquqlar` massivida u bo'lmaydi va
+ishlab turgan integratsiya 403 olardi. Shuning uchun manba o'qish
+mavjud ikki huquqqa bog'landi (`/sources` → katalog = `twinlar`,
+bo'lak/fayl → aynan manba = `fragment`).
+
+**Oq ro'yxat qoidasi ustunlarga ham tarqaldi.** `_manba_qator()`
+ustunlarni bitta-bitta sanaydi (`SELECT *` emas): `s3_yol` ombor
+tuzilishini, `xato` ichki ingest matnini, `yuklagan_id` xodimni oshkor
+qilardi. `/chunk` javobida `audio_xato` ATAYLAB yo'q — unda ffmpeg/S3
+ning ichki matni bo'ladi.
+
+**Range mantiqi ikki nusxada qolmadi.** `fayl_javob.py` yangi modul:
+`web.py` ham, `api_v1.py` ham shundan foydalanadi (ikki nusxa bo'lsa,
+birida tuzatilgan xato ikkinchisida qolib ketardi).
+
+**Yo'l-yo'lakay topilgan xato.** `_xato(kod, xabar, holat, **qosh)` ning
+uchinchi parametri ham `holat` deb atalgan — `_xato(..., 409,
+holat=...)` chaqiruvi `TypeError` berardi. Qo'shimcha maydon `kesma` deb
+nomlandi. Sinovda darhol chiqdi (S12m).
+
+**Qabul qilingan qaror (egasi).** Manba matni va ro'yxati hamkorga
+**ochiq** beriladi. Bu bilim bazasini bo'lak-bo'lak eksport qilish
+yo'lini ochadi (ID lar ketma-ket, `/chunk/{id}` ni 1..N bo'yicha
+aylanish mumkin). Texnik to'siq yo'q — ataylab: himoya **shartnoma** va
+`tashkilot_twin` qamrovi bilan ushlanadi; `api_manba` (120/daqiqa)
+faqat bosim chegarasi, eksportga to'siq emas.
+
+**Sinovlar**: `sinov_b2b` **96/96** (72 edi, +24 tekshiruv: izolyatsiya,
+oq ro'yxat, Range 206/416, huquqlar). `sinov_paylov` 45/45,
+`sinov_tizim` 74/74 — regressiya yo'q. Sinov bazasi: lokal
+`pgvector/pgvector:pg16`, 17 migratsiya. `sinov_jonli` ga uchidan-uchiga
+bo'lim qo'shildi (deploydan keyin).

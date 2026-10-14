@@ -29,7 +29,7 @@ os.environ["KENGASH_BOT_OFF"] = "1"
 
 from fastapi.testclient import TestClient           # noqa: E402
 
-from . import b2b, cheklov, db, pg, pul, web        # noqa: E402
+from . import b2b, cheklov, db, pg, pul, storage, web  # noqa: E402
 from .api_v1 import _hodisa, _manba                 # noqa: E402
 
 KLIENT = TestClient(web.app)
@@ -74,7 +74,7 @@ def tayyorla():
 
 def tozala():
     pg.bajar("DELETE FROM tashkilotlar WHERE slug LIKE 'sinov-b2b-%'")
-    pg.bajar("DELETE FROM twinlar WHERE slug = 'sinov-b2b-twin'")
+    pg.bajar("DELETE FROM twinlar WHERE slug LIKE 'sinov-b2b-twin%'")
     pg.bajar("DELETE FROM userlar WHERE tg_id = -999301")
 
 
@@ -532,6 +532,149 @@ def admin_boshqaruv():
     db.sessiya_ochir(token)
 
 
+# ------------------------------------------------------- 12. manba yuzasi
+
+def manba_yuzasi():
+    """`/sources` va `/chunk/...` — hamkor manbalarni ko'rishi.
+
+    S3 GA TEGMAYMIZ: lokalda MinIO yopiq (droplet ichida 127.0.0.1), shuning
+    uchun `storage.ol` sinov baytlari bilan almashtiriladi. Tekshirilayotgan
+    narsa — Range mantiqi va izolyatsiya, S3 ning o'zi emas.
+    """
+    bolim("12. Manba yuzasi (/sources, /chunk/...)")
+    a, ka, kb, tw = HOLAT["a"], HOLAT["ka"], HOLAT["kb"], HOLAT["twin"]
+
+    mid = db.manba_yasa(tw["id"], "sinov_dars.mp3", "audio",
+                        s3_yol="sinov/asl.mp3", papka="Sinov")
+    db.bolaklar_almashtir(mid, tw["id"], [
+        {"matn": "Audio bolak sinov matni", "joy": "[0:01:00-0:02:00]",
+         "audio_bosh": 60, "audio_oxir": 120},
+        {"matn": "Sahifa bolak sinov matni", "joy": "3-sahifa",
+         "sahifa_png": "sinov/sahifa.jpg"},
+    ])
+    db.manba_tayyor(mid, 2, 3600, 0)
+    yarim = db.manba_yasa(tw["id"], "hali_ishlanmoqda.pdf", "hujjat")
+    qatorlar = pg.hammasi_d(
+        "SELECT id FROM bolaklar WHERE manba_id=%s ORDER BY tartib", mid)
+    b_audio, b_sahifa = qatorlar[0]["id"], qatorlar[1]["id"]
+
+    # --- ro'yxat
+    r = KLIENT.get("/api/v1/sources", headers=bosh(ka))
+    j = r.json()
+    tek(r.status_code == 200 and j.get("mentor") == tw["slug"],
+        "S12a /sources o'z twinining ro'yxatini beradi", str(r.status_code))
+    nomlar = [m["nom"] for m in j["royxat"]]
+    tek("sinov_dars.mp3" in nomlar, "S12b tayyor manba ro'yxatda")
+    tek("hali_ishlanmoqda.pdf" not in nomlar,
+        "S12c navbatdagi manba hamkorga KO'RINMAYDI")
+    q = next(m for m in j["royxat"] if m["nom"] == "sinov_dars.mp3")
+    tek(q["bolaklar"] == 2 and q["davomiylik"] == 3600,
+        "S12d bo'lak soni va davomiylik to'g'ri")
+    ichki = {"s3_yol", "xato", "yuklagan_id", "holat", "sha256"} & set(q)
+    tek(not ichki, "S12e ichki ustunlar chiqmaydi", ", ".join(sorted(ichki)))
+
+    # Filtrlar (SQL dagi `%s='' OR ...` shartining ikki tarmog'i)
+    r = KLIENT.get("/api/v1/sources?tur=audio", headers=bosh(ka))
+    tek(r.status_code == 200 and r.json()["jami"] == 1,
+        "S12e2 ?tur=audio filtri ishlaydi", str(r.json().get("jami")))
+    r = KLIENT.get("/api/v1/sources?tur=slayd", headers=bosh(ka))
+    tek(r.json()["jami"] == 0, "S12e3 mos kelmaydigan tur -> bo'sh",
+        str(r.json().get("jami")))
+    r = KLIENT.get("/api/v1/sources?papka=Sinov&limit=1000", headers=bosh(ka))
+    tek(r.json()["limit"] == 200 and r.json()["jami"] == 1,
+        "S12e4 papka filtri + limit 200 ga qisqaradi",
+        f"limit={r.json().get('limit')}")
+
+    # --- izolyatsiya
+    r = KLIENT.get("/api/v1/sources", headers=bosh(kb))
+    tek(r.status_code == 409, "S12f twinsiz tashkilot -> 409", str(r.status_code))
+    # B ning O'Z twini bo'lsa ham, A ning twinini ko'rmaydi. (Twini BUTUNLAY
+    # yo'q tashkilot 409 oladi — yuqoridagi S12f; bu holatda hali hech qanday
+    # begona resurs haqida gap ketmaydi.)
+    tw2 = pg.bitta_d(
+        """INSERT INTO twinlar(nom, slug, tavsif) VALUES(%s,%s,'sinov')
+           ON CONFLICT (slug) DO UPDATE SET nom=EXCLUDED.nom RETURNING *""",
+        "Sinov twin 2", "sinov-b2b-twin2")
+    b2b.twin_qosh(HOLAT["b"]["id"], tw2["id"])
+    r = KLIENT.get(f"/api/v1/sources?mentor={tw['slug']}", headers=bosh(kb))
+    tek(r.status_code == 404, "S12g BEGONA twin slug -> 404 (403 emas)",
+        str(r.status_code))
+    r = KLIENT.get(f"/api/v1/sources?mentor={tw2['slug']}", headers=bosh(kb))
+    tek(r.status_code == 200 and r.json()["royxat"] == [],
+        "S12g2 o'z (bo'sh) twini -> 200, bo'sh ro'yxat", str(r.status_code))
+    b2b.twin_ochir(HOLAT["b"]["id"], tw2["id"])
+
+    # --- bo'lak matni
+    r = KLIENT.get(f"/api/v1/chunk/{b_audio}", headers=bosh(ka))
+    j = r.json()
+    tek(r.status_code == 200 and j.get("matn", "").startswith("Audio bolak"),
+        "S12h /chunk/{id} matnni beradi", str(r.status_code))
+    tek(j["audio"]["bor"] is True and j["audio"]["bosh"] == 60,
+        "S12i audio oralig'i ko'rinadi")
+    sizdi = {"sahifa_png", "manba_s3", "embedding", "audio_xato"} & set(j)
+    tek(not sizdi and "sinov/asl.mp3" not in r.text,
+        "S12j ichki maydonlar va S3 yo'llari chiqmaydi", ", ".join(sorted(sizdi)))
+    r = KLIENT.get(f"/api/v1/chunk/{b_audio}", headers=bosh(kb))
+    tek(r.status_code == 404, "S12k BEGONA bo'lak -> 404 (403 emas)",
+        str(r.status_code))
+    r = KLIENT.get("/api/v1/chunk/999999999", headers=bosh(ka))
+    tek(r.status_code == 404, "S12l yo'q bo'lak -> 404", str(r.status_code))
+
+    # --- audio kesma
+    r = KLIENT.get(f"/api/v1/chunk/{b_audio}/audio", headers=bosh(ka))
+    tek(r.status_code == 409 and r.json().get("xato") == "fragment_tayyor_emas"
+        and r.json().get("kesma") == "yoq",
+        "S12m kesma tayyor emas -> 409", str(r.status_code))
+    r = KLIENT.get(f"/api/v1/chunk/{b_sahifa}/audio", headers=bosh(ka))
+    tek(r.status_code == 400 and r.json().get("xato") == "audio_yoq",
+        "S12n audiosi yo'q bo'lak -> 400", str(r.status_code))
+
+    BAYT = b"SINOV-AUDIO-BAYTLARI-0123456789"       # 31 bayt
+    asl_ol = storage.ol
+    storage.ol = lambda yol: BAYT
+    try:
+        db.fragment_yoz(b_audio, "audio", "tayyor",
+                        s3_yol=f"fragmentlar/{b_audio}.mp3", davomiylik=65)
+        r = KLIENT.get(f"/api/v1/chunk/{b_audio}/audio", headers=bosh(ka))
+        tek(r.status_code == 200 and r.content == BAYT
+            and r.headers.get("content-type") == "audio/mpeg",
+            "S12o tayyor kesma mp3 bo'lib qaytadi", str(r.status_code))
+        tek(r.headers.get("accept-ranges") == "bytes",
+            "S12p Accept-Ranges bor (pleerda surish)")
+        r = KLIENT.get(f"/api/v1/chunk/{b_audio}/audio",
+                       headers={**bosh(ka), "Range": "bytes=5-9"})
+        tek(r.status_code == 206 and r.content == BAYT[5:10]
+            and r.headers.get("content-range") == f"bytes 5-9/{len(BAYT)}",
+            "S12q Range -> 206 va aynan so'ralgan baytlar",
+            f"{r.status_code} {r.content!r}")
+        r = KLIENT.get(f"/api/v1/chunk/{b_audio}/audio",
+                       headers={**bosh(ka), "Range": "bytes=99-"})
+        tek(r.status_code == 416, "S12r chegaradan tashqari Range -> 416",
+            str(r.status_code))
+        r = KLIENT.get(f"/api/v1/chunk/{b_audio}/audio", headers=bosh(kb))
+        tek(r.status_code == 404, "S12s BEGONA kesma -> 404", str(r.status_code))
+
+        r = KLIENT.get(f"/api/v1/chunk/{b_sahifa}/image", headers=bosh(ka))
+        tek(r.status_code == 200 and r.headers.get("content-type") == "image/jpeg",
+            "S12t sahifa surati qaytadi", str(r.status_code))
+        r = KLIENT.get(f"/api/v1/chunk/{b_audio}/image", headers=bosh(ka))
+        tek(r.status_code == 400 and r.json().get("xato") == "rasm_yoq",
+            "S12u surati yo'q bo'lak -> 400", str(r.status_code))
+    finally:
+        storage.ol = asl_ol
+
+    # --- huquqlar: manba yuzasi alohida huquqlarga bog'langan
+    k_savol, _ = b2b.kalit_yasa(a["id"], "faqat-savol", huquqlar=["savol"])
+    r = KLIENT.get(f"/api/v1/chunk/{b_audio}", headers=bosh(k_savol))
+    tek(r.status_code == 403, "S12v `fragment` huquqisiz /chunk -> 403",
+        str(r.status_code))
+    r = KLIENT.get("/api/v1/sources", headers=bosh(k_savol))
+    tek(r.status_code == 403, "S12w `twinlar` huquqisiz /sources -> 403",
+        str(r.status_code))
+
+    pg.bajar("DELETE FROM manbalar WHERE id = ANY(%s)", [mid, yarim])
+
+
 # ------------------------------------------------------------------- yakun
 
 def main():
@@ -549,6 +692,7 @@ def main():
         idempotentlik()
         admin_yuzasi()
         admin_boshqaruv()
+        manba_yuzasi()
     finally:
         tozala()
         print("\n(sinov ma'lumotlari o'chirildi)")

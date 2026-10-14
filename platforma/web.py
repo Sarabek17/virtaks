@@ -13,8 +13,8 @@ from fastapi.responses import (FileResponse, JSONResponse, Response,
                                StreamingResponse)
 from pydantic import BaseModel
 
-from . import (admin, aniqlik, api_v1, auth, cheklov, db, fragment,
-               jobs, kabinet,
+from . import (admin, aniqlik, api_v1, auth, cheklov, db, fayl_javob,
+               fragment, jobs, kabinet,
                maqsad, maqsad_oqim, mentor, monitoring, oquv, pg, pochta,
                profil, pul, skilllar, storage, suhbat, tanishuv, tg, tizim,
                tizim_oqim, tolov, vazifa, yordamchi)
@@ -676,26 +676,12 @@ def bolak_fragment(bid: int, request: Request):
 
 
 def _oqim_javobi(yol: str, request: Request, mime: str, nom: str):
-    """S3 dagi faylni qaytaradi; audio uchun Range (pleerda oldinga surish) qo'llanadi."""
-    from . import storage
-    try:
-        tarkib = storage.ol(yol)
-    except Exception:
-        return _404()
-    jami = len(tarkib)
-    bosh_h = {"Content-Disposition": f'inline; filename="{nom}"',
-              "Accept-Ranges": "bytes", "Cache-Control": "private, max-age=86400"}
-    oraliq = request.headers.get("range", "")
-    m = re.match(r"bytes=(\d+)-(\d*)", oraliq)
-    if m:
-        b1 = int(m.group(1))
-        b2 = int(m.group(2)) if m.group(2) else jami - 1
-        b2 = min(b2, jami - 1)
-        if b1 > b2:
-            return Response(status_code=416)
-        return Response(tarkib[b1:b2 + 1], status_code=206, media_type=mime,
-                        headers={**bosh_h, "Content-Range": f"bytes {b1}-{b2}/{jami}"})
-    return Response(tarkib, media_type=mime, headers=bosh_h)
+    """S3 dagi faylni qaytaradi; audio uchun Range (pleerda oldinga surish).
+
+    Mantiqning o'zi `fayl_javob` da — ayni shu narsa B2B API ga ham kerak
+    (`api_v1.bolak_audio`), ikki nusxa bo'lib ajralib ketmasin.
+    """
+    return fayl_javob.javob(yol, request, mime, nom) or _404()
 
 
 @app.get("/api/bolak/{bid}/audio")
