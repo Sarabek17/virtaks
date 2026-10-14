@@ -364,6 +364,18 @@ def sirlar():
     tek(_hodisa({"tur": "ichki_narsa", "sir": 1}, a["id"]) is None,
         "S7f noma'lum hodisa umuman uzatilmaydi")
 
+    # `audio: true` = KESMA MUMKIN. Asl fayl omborda bo'lmasa (eski
+    # urug'lantirishdan kelgan manba) bayroq YOLG'ON bo'lib, hamkor
+    # «tingla» tugmasini ko'rsatib 400 olardi — prodda topilgan.
+    tek(_manba({"n": 1, "id": 5, "audio_bosh": 61, "asl_bor": True})["audio"]
+        is True, "S7g asl fayl bor -> audio: true")
+    tek(_manba({"n": 1, "id": 5, "audio_bosh": 61, "asl_bor": False})["audio"]
+        is False, "S7h asl fayl YO'Q -> audio: false (kesma mumkin emas)")
+    tek(_manba({"n": 1, "id": 5, "audio_bosh": None, "asl_bor": True})["audio"]
+        is False, "S7i vaqt oralig'i yo'q -> audio: false")
+    tek(_manba({"n": 1, "id": 5, "audio_bosh": 61})["audio"] is True,
+        "S7j eski tarix (asl_bor yozilmagan) -> oldingi xulq saqlanadi")
+
 
 # ---------------------------------------------------------------- 8. cheklov
 

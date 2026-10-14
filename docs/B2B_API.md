@@ -265,6 +265,11 @@ curl -H "Authorization: Bearer $VIRTAKS_KALIT" \
 Iqtibosda `audio: true` bo'lsa, darsning **aynan o'sha daqiqasini** kesib
 olish mumkin. Ikki qadam: avval buyuriladi, keyin yuklab olinadi.
 
+> `audio: true` — vaqt oralig'i ham, **asl yozuv ham** omborda bor degani,
+> ya'ni kesma olish mumkin. Ba'zi eski manbalarning asl fayli saqlanmagan:
+> matni va iqtibosi ishlaydi, lekin `audio: false` keladi va kesma
+> buyurilsa `400 audio_yoq` qaytadi.
+
 ```bash
 # 1) kesishni buyurish
 curl -X POST -H "Authorization: Bearer $VIRTAKS_KALIT" \

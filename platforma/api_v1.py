@@ -114,7 +114,11 @@ def _manba(b: dict) -> dict:
         "joy": b.get("joy", ""),
         "tur": b.get("tur", ""),
         "dars": b.get("dars", ""),
-        "audio": b.get("audio_bosh") is not None,
+        # `audio: true` = KESMA OLISH MUMKIN (vaqt oralig'i bor VA asl fayl
+        # omborda). `asl_bor` eski suhbat tarixida yo'q — u paytda bayroq
+        # yozilmagan, shuning uchun yo'qligi «yo'q» degani emas.
+        "audio": (b.get("audio_bosh") is not None
+                  and b.get("asl_bor") is not False),
         "sahifa": bool(b.get("sahifa_png")),
     }
 

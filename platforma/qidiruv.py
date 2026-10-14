@@ -60,17 +60,25 @@ def _bm25():
 
 
 def _boyit(qatorlar: list[dict]) -> list[dict]:
-    """Bo'laklarga manba ma'lumotini qo'shadi (nom, tur, papka)."""
+    """Bo'laklarga manba ma'lumotini qo'shadi (nom, tur, papka, asl fayl).
+
+    `manba_s3` ICHKI maydon — tashqariga chiqmaydi, lekin audio kesmasi
+    mumkinmi degan savolga faqat u javob beradi (`fragment.holat` ham
+    shunga qaraydi). Eski urug'lantirishdan kelgan manbalarda asl fayl
+    yo'q, ya'ni `audio_bosh` bo'lsa ham kesib bo'lmaydi.
+    """
     if not qatorlar:
         return []
     idlar = list({q["manba_id"] for q in qatorlar})
     manbalar = {m["id"]: m for m in pg.hammasi_d(
-        "SELECT id, nom, tur, papka FROM manbalar WHERE id = ANY(%s)", idlar)}
+        "SELECT id, nom, tur, papka, s3_yol FROM manbalar WHERE id = ANY(%s)",
+        idlar)}
     for q in qatorlar:
         m = manbalar.get(q["manba_id"], {})
         q["manba"] = m.get("nom", "")
         q["tur"] = m.get("tur", "")
         q["papka"] = m.get("papka", "")
+        q["manba_s3"] = m.get("s3_yol", "")
     return qatorlar
 
 

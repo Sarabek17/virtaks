@@ -157,6 +157,10 @@ def ishlatilgan_iqtiboslar(javob: str, bolaklar: list[dict]) -> list[dict]:
                        "dars": b.get("papka", ""),
                        "audio_bosh": b.get("audio_bosh"),
                        "audio_oxir": b.get("audio_oxir"),
+                       # Asl fayl omborda bormi — kesma MUMKINMI degani.
+                       # Yo'lning o'zi emas, faqat bayroq: bu ro'yxat
+                       # brauzerga ham, hamkorga ham uzatiladi.
+                       "asl_bor": bool(b.get("manba_s3")),
                        "sahifa_png": b.get("sahifa_png", "")})
     natija.sort(key=lambda x: x["n"])
     yolgon = [n for n in set(raqamlar) if not (1 <= n <= len(bolaklar))]
