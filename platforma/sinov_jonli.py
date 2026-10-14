@@ -8,6 +8,7 @@ Qolgan sinovlar (`sinov_b2b`) modelsiz ishlaydi — kundalik ish uchun
 o'shalar. Bu esa deploydan keyin bir marta: zanjir butunmi?
 
     kalit -> izolyatsiya -> qidiruv -> model -> iqtibos -> hisob -> balans
+            -> manba yuzasi (/sources, /chunk/{id}, /chunk/{id}/audio)
 
 O'zining sinov tashkilotini (`slug='jonli-sinov'`) yaratadi va oxirida
 o'chiradi; bazadagi mavjud twin va bilimdan foydalanadi, hech narsani
@@ -123,6 +124,33 @@ tek(r2.status_code == 200 and len(r2.json()["xabarlar"]) == 1,
 r3 = K.get("/api/v1/hisobot", headers=bosh)
 tek(r3.status_code == 200 and r3.json()["savollar"] >= 1,
     "oylik hisobotda savol ko'rindi", f"{r3.json().get('savollar')} savol")
+
+# --- Manba yuzasi: hamkor iqtibosni ocha oladimi
+r4 = K.get("/api/v1/sources", headers=bosh,
+           params={"mentor": twin["slug"], "limit": 5})
+tek(r4.status_code == 200 and r4.json().get("jami", 0) > 0,
+    "/sources manbalar ro'yxatini berdi", f"{r4.json().get('jami')} manba")
+tek("s3_yol" not in r4.text and "yuklagan_id" not in r4.text,
+    "/sources da ichki ustunlar yo'q")
+
+if j.get("manbalar"):
+    bid = j["manbalar"][0]["bolak"]
+    r5 = K.get(f"/api/v1/chunk/{bid}", headers=bosh)
+    matn = r5.json().get("matn", "") if r5.status_code == 200 else ""
+    tek(r5.status_code == 200 and len(matn) > 20,
+        "/chunk/{id} iqtibos matnini berdi", f"{len(matn)} belgi")
+    tek("manba_s3" not in r5.text and "sahifa_png" not in r5.text,
+        "/chunk javobida ichki maydonlar yo'q")
+    if r5.status_code == 200 and r5.json().get("audio", {}).get("bor"):
+        # Kesish jobi navbatga tushadi (ffmpeg, LLM puli YO'Q) — kutmaymiz.
+        r6 = K.post(f"/api/v1/chunk/{bid}/fragment", headers=bosh)
+        tek(r6.status_code == 200, "audio kesma buyurildi", r6.text[:80])
+        r7 = K.get(f"/api/v1/chunk/{bid}/audio", headers=bosh)
+        tek(r7.status_code in (200, 409),
+            "/chunk/{id}/audio javob berdi (200 tayyor / 409 hali emas)",
+            str(r7.status_code))
+    else:
+        print("       (bu bo'lakda audio yo'q — kesma sinovi o'tkazildi)")
 
 pg.bajar("DELETE FROM tashkilotlar WHERE slug='jonli-sinov'")
 print(f"\nNATIJA: {OK} o'tdi, {XATO} yiqildi")

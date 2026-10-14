@@ -42,6 +42,11 @@ QOIDA = {
     "api_savol": (60, 60),         # savol yuborish — tashkilot bo'yicha
     "api_user": (20, 60),          # hamkorning BITTA mijozi bo'yicha
     "api_kalit": (10, 300),        # noto'g'ri kalit bilan urinish (brute-force)
+    # Manba o'qish (`/sources`, `/chunk/...`): model chaqirilmaydi, ya'ni
+    # PULLI darvoza yo'q — tom faqat shu yerda. Bu BULK EKSPORTGA to'siq
+    # EMAS (bir kecha ichida baribir ko'chirib olinadi), shunchaki bosim
+    # chegarasi: bilim bazasining qamrovi SHARTNOMA bilan ushlanadi.
+    "api_manba": (120, 60),        # manba/bo'lak o'qish — tashkilot bo'yicha
 }
 
 TOZALASH_S = 600                   # eskirgan kalitlarni tozalash oralig'i

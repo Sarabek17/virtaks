@@ -25,7 +25,7 @@ from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel
 
-from . import b2b, cheklov, db, fragment, jobs, pg, pul, yordamchi
+from . import b2b, cheklov, db, fayl_javob, fragment, jobs, pg, pul, yordamchi
 from .sozlama import log
 
 router = APIRouter(prefix="/api/v1")
@@ -188,6 +188,64 @@ def twinlar(request: Request):
         return xato
     return {"royxat": [{"slug": t["slug"], "nom": t["nom"], "tavsif": t["tavsif"]}
                        for t in b2b.twinlar(k.tashkilot_id)]}
+
+
+# ----------------------------------------------------------------- manbalar
+
+def _manba_qator(m: dict) -> dict:
+    """Manba yozuvini hamkor ko'radigan shaklga keltiradi.
+
+    Ustunlar OQ RO'YXAT bilan sanaladi (`SELECT *` emas): `s3_yol` ombor
+    tuzilishini, `xato` ichki ingest matnini, `yuklagan_id` esa bizning
+    xodimimizni oshkor qilardi.
+    """
+    return {
+        "id": m["id"], "nom": m["nom"], "tur": m["tur"], "papka": m["papka"],
+        "bolaklar": m["bolak_soni"], "davomiylik": m["davomiylik"],
+        "sahifalar": m["sahifa_soni"] or None, "hajm": m["hajm"] or None,
+        "havola": m["manba_url"] or "", "qoshilgan": m["yaratilgan"],
+    }
+
+
+@router.get("/sources", summary="List a mentor's knowledge sources")
+@router.get("/manbalar", include_in_schema=False)
+def manbalar(request: Request, mentor: str = "", tur: str = "", papka: str = "",
+             limit: int = 100, offset: int = 0):
+    """Twinning bilim bazasi: ingest qilingan manbalar ro'yxati.
+
+    `mentor` berilmasa — tashkilotga ochilgan BIRINCHI twin (`/ask` bilan
+    ayni qoida). Faqat `holat='tayyor'` manbalar qaytadi: navbatda turgan
+    yoki xatoga uchragan fayl hamkorga ko'rinmaydi (u bizning ichki
+    jarayonimiz).
+    """
+    k, xato = _kirish(request, "twinlar")
+    if xato:
+        return xato
+    if not cheklov.ruxsat("api_manba", str(k.tashkilot_id)):
+        return _429("manba_tez")
+
+    twinlar_r = b2b.twinlar(k.tashkilot_id)
+    if not twinlar_r:
+        return _xato("twin_yoq", "Bu tashkilotga hali twin biriktirilmagan", 409)
+    t = (b2b.twin_ruxsat(k.tashkilot_id, mentor) if mentor
+         else db.twin_ol(twinlar_r[0]["id"]))
+    if not t:
+        return _404()
+
+    limit = max(1, min(200, limit))
+    offset = max(0, offset)
+    shart = """twin_id=%s AND holat='tayyor'
+               AND (%s='' OR tur=%s) AND (%s='' OR papka=%s)"""
+    arg = (t["id"], tur, tur, papka, papka)
+    jami = pg.bitta(f"SELECT count(*) FROM manbalar WHERE {shart}", *arg)
+    qatorlar = pg.hammasi_d(
+        f"""SELECT id, nom, tur, papka, bolak_soni, davomiylik, sahifa_soni,
+                   hajm, manba_url, yaratilgan
+              FROM manbalar WHERE {shart}
+             ORDER BY id DESC LIMIT %s OFFSET %s""", *arg, limit, offset)
+    return {"mentor": t["slug"], "jami": int(jami[0]) if jami else 0,
+            "limit": limit, "offset": offset,
+            "royxat": [_manba_qator(m) for m in qatorlar]}
 
 
 # -------------------------------------------------------------------- savol
@@ -368,7 +426,94 @@ def suhbat(sid: int, request: Request):
     return {"id": sid, "sarlavha": sq["sarlavha"], "xabarlar": xabarlar}
 
 
-# ------------------------------------------------------------------ fragment
+# ---------------------------------------------------- bo'lak (aynan manba)
+
+def _bolak_olish(bid: int, k):
+    """(bolak, twin, xato) — izolyatsiya bitta joyda.
+
+    `bolaklar.twin_id` bevosita bor, shuning uchun manbani qidirish shart
+    emas. Tashkilotga OCHILMAGAN twinning bo'lagi — 404 (403 emas).
+    """
+    b = db.bolak_ol(bid)
+    if not b:
+        return None, None, _404()
+    t = b2b.twin_ruxsat(k.tashkilot_id, int(b["twin_id"]))
+    if not t:
+        return None, None, _404()
+    return b, t, None
+
+
+@router.get("/chunk/{bid}", summary="Get one chunk - the cited source text")
+@router.get("/bolak/{bid}", include_in_schema=False)
+def bolak(bid: int, request: Request):
+    """Bitta bo'lak: AYNAN iqtibos qilingan matn + qanday fayl mavjudligi.
+
+    ID javobdagi `manbalar[].bolak` dan olinadi.
+    """
+    k, xato = _kirish(request, "fragment")
+    if xato:
+        return xato
+    if not cheklov.ruxsat("api_manba", str(k.tashkilot_id)):
+        return _429("manba_tez")
+    b, t, xato = _bolak_olish(bid, k)
+    if xato:
+        return xato
+    h = fragment.holat(b)
+    return {
+        "id": b["id"], "mentor": t["slug"], "matn": b["matn"], "joy": b["joy"],
+        "manba": b["manba"], "manba_id": b["manba_id"], "tur": b["tur"],
+        "papka": b["papka"], "havola": b["manba_url"] or "",
+        "teglar": list(b["teglar"] or []),
+        # `audio_xato` ATAYLAB yo'q: unda ffmpeg/S3 ning ichki matni bo'ladi.
+        "audio": {"bor": h["audio"], "holat": h["audio_holat"],
+                  "bosh": h["bosh"], "oxir": h["oxir"]},
+        "rasm": h["rasm"],
+    }
+
+
+@router.get("/chunk/{bid}/audio", summary="Download the prepared audio fragment")
+@router.get("/bolak/{bid}/audio", include_in_schema=False)
+def bolak_audio(bid: int, request: Request):
+    """Tayyor audio kesma (mp3; `Range` bilan pleerda surish ishlaydi).
+
+    Kesma tayyor bo'lmasa 409 — avval `POST /chunk/{id}/fragment`.
+    """
+    k, xato = _kirish(request, "fragment")
+    if xato:
+        return xato
+    if not cheklov.ruxsat("api_manba", str(k.tashkilot_id)):
+        return _429("manba_tez")
+    b, _, xato = _bolak_olish(bid, k)
+    if xato:
+        return xato
+    if not fragment.holat(b)["audio"]:
+        return _xato("audio_yoq", "Bu bo'lakda audio yo'q", 400)
+    fr = db.fragment_ol(bid, "audio")
+    if not fr or fr["holat"] != "tayyor":
+        return _xato("fragment_tayyor_emas",
+                     "Kesma hali tayyor emas - avval POST /chunk/{id}/fragment",
+                     409, kesma=(fr or {}).get("holat", "yoq"))
+    return (fayl_javob.javob(fr["s3_yol"], request, "audio/mpeg",
+                             f"fragment_{bid}.mp3") or _404())
+
+
+@router.get("/chunk/{bid}/image", summary="Download the slide or page image")
+@router.get("/bolak/{bid}/rasm", include_in_schema=False)
+def bolak_rasm(bid: int, request: Request):
+    """Slayd/sahifa surati — javobda `manbalar[].sahifa` true bo'lsa bor."""
+    k, xato = _kirish(request, "fragment")
+    if xato:
+        return xato
+    if not cheklov.ruxsat("api_manba", str(k.tashkilot_id)):
+        return _429("manba_tez")
+    b, _, xato = _bolak_olish(bid, k)
+    if xato:
+        return xato
+    if not b.get("sahifa_png"):
+        return _xato("rasm_yoq", "Bu bo'lakda sahifa surati yo'q", 400)
+    return (fayl_javob.javob(b["sahifa_png"], request, "image/jpeg",
+                             f"sahifa_{bid}.jpg") or _404())
+
 
 @router.post("/chunk/{bid}/fragment", summary="Request an audio fragment")
 @router.post("/bolak/{bid}/fragment", include_in_schema=False)
@@ -377,10 +522,9 @@ def bolak_fragment(bid: int, request: Request):
     k, xato = _kirish(request, "fragment")
     if xato:
         return xato
-    b = db.bolak_ol(bid)
-    # `bolaklar.twin_id` bevosita bor — manbani qidirish shart emas.
-    if not b or not b2b.twin_ruxsat(k.tashkilot_id, b["twin_id"]):
-        return _404()
+    b, _, xato = _bolak_olish(bid, k)
+    if xato:
+        return xato
 
     h = fragment.holat(b)
     if not h["audio"]:

@@ -186,12 +186,87 @@ curl -H "Authorization: Bearer $VIRTAKS_KALIT" \
 
 ---
 
-## 6. Audio fragment
+## 6. Manbalar — iqtibosni ochish
 
-Iqtibosda `audio: true` bo'lsa, darsning **aynan o'sha daqiqasini**
-kesib olish mumkin:
+Javobdagi `[1]`, `[2]` iqtiboslarini o'z UI ingizda **ochib ko'rsatish**
+mumkin: asl matn, darsning aynan o'sha daqiqasi (mp3) yoki slayd surati.
+Kerakli ID — iqtibosdagi `bolak`.
+
+> Bu bo'limdagi so'rovlar kalitda `twinlar` (`/sources`) va `fragment`
+> (bo'lak, audio, surat) huquqlarini talab qiladi. Standart kalitda
+> ikkalasi ham bor; cheklangan kalit buyurtma qilgan bo'lsangiz —
+> `403 ruxsat_yoq` keladi.
+
+### 6.1. Manbalar ro'yxati
+
+Ustozning bilim bazasida nima borligi:
 
 ```bash
+curl -H "Authorization: Bearer $VIRTAKS_KALIT" \
+  "https://twin.virtaks.uz/api/v1/sources?mentor=axrolxoja&limit=50"
+```
+
+```json
+{
+  "mentor": "axrolxoja",
+  "jami": 385,
+  "limit": 50,
+  "offset": 0,
+  "royxat": [
+    {"id": 412, "nom": "05.Dars. Sotuv bo'limi tashkil qilish.mp4",
+     "tur": "audio", "papka": "Sotuv", "bolaklar": 47,
+     "davomiylik": 5412, "sahifalar": null, "hajm": 184322048,
+     "havola": "", "qoshilgan": "2026-09-13T11:20:41+00:00"}
+  ]
+}
+```
+
+| Parametr | Izoh |
+|---|---|
+| `mentor` | `slug`; berilmasa — birinchi ochiq ustoz |
+| `tur` | `audio` / `slayd` / `jadval` / `hujjat` / `web` |
+| `papka` | papka tegi bo'yicha filtr |
+| `limit` | 1–200, standart 100 |
+| `offset` | sahifalash |
+
+Faqat **ishlab bo'lingan** manbalar ko'rinadi (navbatda turgan yoki
+xatoga uchragan fayl ro'yxatga tushmaydi). `davomiylik` — soniya (audio),
+`sahifalar` — varaq soni (PDF/slayd), `hajm` — bayt.
+
+### 6.2. Bitta bo'lak (iqtibos matni)
+
+```bash
+curl -H "Authorization: Bearer $VIRTAKS_KALIT" \
+  https://twin.virtaks.uz/api/v1/chunk/88213
+```
+
+```json
+{
+  "id": 88213,
+  "mentor": "axrolxoja",
+  "matn": "Sotuv bo'limini qurishda birinchi qadam — ...",
+  "joy": "[0:12:30–0:14:05]",
+  "manba": "05.Dars. Sotuv bo'limi tashkil qilish",
+  "manba_id": 412,
+  "tur": "audio",
+  "papka": "Sotuv",
+  "havola": "",
+  "teglar": ["sotuv", "boshqaruv"],
+  "audio": {"bor": true, "holat": "navbatda", "bosh": 750, "oxir": 845},
+  "rasm": false
+}
+```
+
+`audio.bosh` / `audio.oxir` — asl yozuvdagi oraliq (soniya).
+`audio.holat`: `navbatda` → `ketmoqda` → `tayyor` (yoki `xato`).
+
+### 6.3. Audio fragment
+
+Iqtibosda `audio: true` bo'lsa, darsning **aynan o'sha daqiqasini** kesib
+olish mumkin. Ikki qadam: avval buyuriladi, keyin yuklab olinadi.
+
+```bash
+# 1) kesishni buyurish
 curl -X POST -H "Authorization: Bearer $VIRTAKS_KALIT" \
   https://twin.virtaks.uz/api/v1/chunk/88213/fragment
 ```
@@ -201,8 +276,33 @@ curl -X POST -H "Authorization: Bearer $VIRTAKS_KALIT" \
 ```
 
 Tayyor bo'lgach ayni so'rov `{"holat": "tayyor"}` qaytaradi (odatda
-10–15 soniya). Fragment fayliga havola olish hozircha kelishuv bo'yicha
-beriladi — bog'laning.
+10–15 soniya).
+
+```bash
+# 2) mp3 ni olish
+curl -H "Authorization: Bearer $VIRTAKS_KALIT" \
+  https://twin.virtaks.uz/api/v1/chunk/88213/audio -o fragment.mp3
+```
+
+- Kesma hali tayyor bo'lmasa — `409 fragment_tayyor_emas` (javobda
+  `kesma` maydoni joriy holatni aytadi). Buyurib, bir-ikki soniyadan
+  keyin qayta so'rang.
+- `Range` qo'llanadi (`206 Partial Content`), ya'ni manzilni to'g'ridan
+  to'g'ri HTML `<audio src=...>` ga berib, pleerda oldinga surish
+  ishlaydi. Sarlavhani (`Authorization`) proksi orqali qo'shishni
+  unutmang — brauzer `<audio>` tegiga sarlavha qo'shmaydi.
+- Fragment bir marta kesiladi va keshlanadi; `Cache-Control: private`.
+
+### 6.4. Slayd yoki sahifa surati
+
+Iqtibosda `sahifa: true` bo'lsa:
+
+```bash
+curl -H "Authorization: Bearer $VIRTAKS_KALIT" \
+  https://twin.virtaks.uz/api/v1/chunk/88402/image -o sahifa.jpg
+```
+
+Surat yo'q bo'lsa — `400 rasm_yoq`.
 
 ---
 
@@ -266,8 +366,10 @@ curl -H "Authorization: Bearer $VIRTAKS_KALIT" \
 | 402 | `balans_tugadi` | hisobni to'ldiring |
 | 403 | `ruxsat_yoq` | kalitda bu huquq yo'q |
 | 404 | `topilmadi` | resurs yo'q yoki sizga ochilmagan |
+| 400 | `audio_yoq` / `rasm_yoq` | bu bo'lakda audio yoki surat yo'q |
 | 409 | `twin_yoq` | hali twin biriktirilmagan — bog'laning |
-| 429 | `tashkilot_tez` / `mijoz_tez` / `parallel_oqim` | `Retry-After` sarlavhasini kuting |
+| 409 | `fragment_tayyor_emas` | kesma hali tayyor emas — qayta so'rang |
+| 429 | `tashkilot_tez` / `mijoz_tez` / `manba_tez` / `parallel_oqim` | `Retry-After` sarlavhasini kuting |
 | 503 | `model` | vaqtinchalik; qayta urinish mumkin |
 
 Barcha xatolar bir xil shaklda:
@@ -284,6 +386,7 @@ Barcha xatolar bir xil shaklda:
 |---|---|
 | So'rov (tashkilot bo'yicha) | 60 / daqiqa |
 | So'rov (bitta mijoz bo'yicha) | 20 / daqiqa |
+| Manba/bo'lak o'qish (`/sources`, `/chunk/...`) | 120 / daqiqa |
 | Bir vaqtda ochiq oqim | 5 |
 | Savol uzunligi | 4000 belgi |
 
