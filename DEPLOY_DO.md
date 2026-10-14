@@ -258,6 +258,10 @@ docker compose exec -T web python -m platforma.sinov_b2b     # 72 tekshiruv, MOD
 docker compose exec -T web python -m platforma.sinov_jonli   # jonli, bir necha sent
 ```
 
+`sinov_b2b` prod bazada o'z tashkilotini, userini va xarajat qatorlarini
+yaratib, oxirida HAMMASINI o'chiradi. (2026-10-15 gacha xarajat qatorlari
+qolib ketardi va moliya hisobotiga $31.50 soxta sarf yozilgan edi.)
+
 ---
 
 ## 7. Jonli holatga o'tish

@@ -76,6 +76,10 @@ def tozala():
     pg.bajar("DELETE FROM tashkilotlar WHERE slug LIKE 'sinov-b2b-%'")
     pg.bajar("DELETE FROM twinlar WHERE slug = 'sinov-b2b-twin'")
     pg.bajar("DELETE FROM userlar WHERE tg_id = -999301")
+    # Soxta xarajat qatorlari: tashkilot o'chirilganda `tashkilot_id` NULL
+    # bo'ladi, lekin QATORNING O'ZI qoladi va moliya hisobotini buzadi.
+    # Shuning uchun ularni ataylab o'chiramiz.
+    pg.bajar("DELETE FROM xarajatlar WHERE bosqich = 'sinov_b2b'")
 
 
 # ---------------------------------------------------------------- 1. statik
@@ -268,7 +272,11 @@ def pul_yoli():
     boshlangich = 10.0
 
     pul.kontekst_boshla(user_id=u["id"], twin_id=HOLAT["twin"]["id"])
-    y = pul.xarajat_yoz("gemini-3.5-flash", 1_000_000, 1_000_000, "sinov")
+    # Bosqich nomi ATAYLAB o'ziga xos: `tozala()` aynan shu qatorlarni
+    # o'chiradi. Avval "sinov" edi va qatorlar bazada QOLIB KETARDI —
+    # prod hisobotiga $31.50 soxta xarajat yozilgan edi (2026-10-15 da
+    # topildi). Chaqiruv SOXTA: model chaqirilmaydi, faqat daftar sinaladi.
+    y = pul.xarajat_yoz("gemini-3.5-flash", 1_000_000, 1_000_000, "sinov_b2b")
     tek(abs(y["narx"] - kutilgan_narx) < 1e-6, "S6a tannarx bazadagi narxga mos",
         f"{y['narx']} (kutilgan {kutilgan_narx})")
     tek(abs(y.get("hisob", 0) - kutilgan_hisob) < 1e-6,
